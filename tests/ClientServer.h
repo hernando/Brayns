@@ -277,6 +277,25 @@ private:
     rockets::jsonrpc::Client<rockets::ws::Client> _client{_wsClient};
 };
 
+class Client
+{
+private:
+    rockets::ws::Client _wsClient;
+
+public:
+    rockets::jsonrpc::Client<rockets::ws::Client> client{_wsClient};
+
+    Client(ClientServer& server)
+    {
+        server.connect(_wsClient);
+    }
+
+    void process()
+    {
+        _wsClient.process(CLIENT_PROCESS_TIMEOUT);
+    }
+};
+
 ClientServer* ClientServer::_instance{nullptr};
 
 template <typename Params, typename RetVal>

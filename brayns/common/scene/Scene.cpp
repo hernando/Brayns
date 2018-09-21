@@ -35,10 +35,39 @@ namespace fs = boost::filesystem;
 namespace
 {
 const size_t CACHE_VERSION = 10;
+
+template <typename T, typename U = T> // U seems to be needed when getID is a
+                                      // member function of a base of T.
+std::shared_ptr<T> _find(const std::vector<std::shared_ptr<T>>& list,
+                         const size_t id,
+                         size_t (U::*getID)() const = &T::getID)
+{
+    auto i = std::find_if(list.begin(), list.end(), [id, getID](auto x) {
+        return id == ((*x).*getID)();
+    });
+    return i == list.end() ? std::shared_ptr<T>{} : *i;
+}
+
+template <typename T, typename U = T>
+std::shared_ptr<T> _remove(std::vector<std::shared_ptr<T>>& list,
+                           const size_t id,
+                           size_t (U::*getID)() const = &T::getID)
+{
+    auto i = std::find_if(list.begin(), list.end(), [id, getID](auto x) {
+        return id == ((*x).*getID)();
+    });
+    if (i == list.end())
+        return std::shared_ptr<T>{};
+    auto result = *i;
+    list.erase(i);
+    return result;
+}
 }
 
 namespace brayns
 {
+size_t ClipPlane::_nextID = 0;
+
 Scene::Scene(ParametersManager& parametersManager)
     : _parametersManager(parametersManager)
 {
@@ -147,16 +176,9 @@ void Scene::removeModel(const size_t id)
 {
     {
         std::unique_lock<std::shared_timed_mutex> lock(_modelMutex);
-        auto i = std::find_if(_modelDescriptors.begin(),
-                                _modelDescriptors.end(), [id](auto desc) {
-                                    return id == desc->getModelID();
-                                });
-        if (i == _modelDescriptors.end())
-            return;
-
-        (*i)->callOnRemoved();
-
-        _modelDescriptors.erase(i);
+        auto model =
+            _remove(_modelDescriptors, id, &ModelDescriptor::getModelID);
+        model->callOnRemoved();
     }
     markModified();
 }
@@ -164,9 +186,7 @@ void Scene::removeModel(const size_t id)
 ModelDescriptorPtr Scene::getModel(const size_t id) const
 {
     auto lock = acquireReadAccess();
-    auto i = std::find_if(_modelDescriptors.begin(), _modelDescriptors.end(),
-                          [id](auto desc) { return id == desc->getModelID(); });
-    return i == _modelDescriptors.end() ? ModelDescriptorPtr{} : *i;
+    return _find(_modelDescriptors, id, &ModelDescriptor::getModelID);
 }
 
 void Scene::setSimulationHandler(AbstractSimulationHandlerPtr handler)
@@ -211,6 +231,26 @@ bool Scene::empty() const
         if (!modelDescriptor->getModel().empty())
             return false;
     return true;
+}
+
+size_t Scene::addClipPlane(const Plane& plane)
+{
+    auto clipPlane = std::make_shared<ClipPlane>(plane);
+    clipPlane->onModified([&](const BaseObject&){ markModified(); });
+    _clipPlanes.emplace_back(std::move(clipPlane));
+    markModified();
+    return (*_clipPlanes.rbegin())->getID();
+}
+
+ClipPlanePtr Scene::getClipPlane(const size_t id) const
+{
+    return _find(_clipPlanes, id);
+}
+
+void Scene::removeClipPlane(const size_t id)
+{
+    _remove(_clipPlanes, id);
+    markModified();
 }
 
 ModelDescriptorPtr Scene::load(Blob&& blob, const size_t materialID,

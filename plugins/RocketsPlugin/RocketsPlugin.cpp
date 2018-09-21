@@ -93,6 +93,10 @@ const std::string METHOD_SCHEMA = "schema";
 const std::string METHOD_SET_MODEL_PROPERTIES = "set-model-properties";
 const std::string METHOD_UPDATE_INSTANCE = "update-instance";
 const std::string METHOD_UPDATE_MODEL = "update-model";
+const std::string METHOD_ADD_CLIP_PLANE = "add-clip-plane";
+const std::string METHOD_GET_CLIP_PLANES = "get-clip-planes";
+const std::string METHOD_UPDATE_CLIP_PLANE = "update-clip-plane";
+const std::string METHOD_REMOVE_CLIP_PLANES = "remove-clip-planes";
 
 // JSONRPC notifications
 const std::string METHOD_CHUNK = "chunk";
@@ -409,6 +413,26 @@ public:
         });
     }
 
+    template <typename RetVal>
+    void _bindEndpoint(const std::string& method,
+                       std::function<RetVal()> action)
+    {
+        _jsonrpcServer->bind(method, [&, action](
+                                         rockets::jsonrpc::Request request) {
+            ScopedCurrentClient scope(_currentClientID, request.clientID);
+
+            try
+            {
+                const auto& ret = action();
+                return Response{to_json(ret)};
+            }
+            catch (const rockets::jsonrpc::response_error& e)
+            {
+                return Response{Response::Error{e.what(), e.code}};
+            }
+        });
+    }
+
     template <typename Params>
     void _bindEndpoint(const std::string& method,
                        std::function<void(Params)> action)
@@ -551,6 +575,14 @@ public:
     {
         _bindEndpoint<P, R>(desc.methodName, action);
         _handleSchema(desc.methodName, buildJsonRpcSchemaRequest<P, R>(desc));
+    }
+
+    template <class R>
+    void _handleRPC(const RpcDescription& desc, std::function<R()> action)
+    {
+        _bindEndpoint<R>(desc.methodName, action);
+        _handleSchema(desc.methodName,
+                      buildJsonRpcSchemaRequestReturnOnly<R>(desc));
     }
 
     template <class P>
@@ -793,6 +825,11 @@ public:
         _handleSetModelProperties();
         _handleGetModelProperties();
         _handleModelPropertiesSchema();
+
+        _handleAddClipPlane();
+        _handleGetClipPlanes();
+        _handleUpdateClipPlane();
+        _handleRemoveClipPlanes();
 
         _handleGetInstances();
         _handleUpdateInstance();
@@ -1065,6 +1102,68 @@ public:
         });
     }
 
+    void _handleAddClipPlane()
+    {
+        const RpcParameterDescription desc{
+            METHOD_ADD_CLIP_PLANE,
+            "Add a clip plane; returns the clip plane descriptor", "plane",
+            "An array of 4 floats"};
+
+        _handleRPC<Plane, ClipPlanePtr>(desc, [engine = _engine](
+                                                  const Plane& plane) {
+            auto& scene = engine->getScene();
+            return scene.getClipPlane(scene.addClipPlane(plane));
+        });
+    }
+
+    void _handleGetClipPlanes()
+    {
+        _handleRPC<ClipPlanes>({METHOD_GET_CLIP_PLANES, "Get all clip planes"},
+                               [engine = _engine]() {
+                                   auto& scene = engine->getScene();
+                                   return scene.getClipPlanes();
+                               });
+    }
+
+    void _handleUpdateClipPlane()
+    {
+        _bindEndpoint(METHOD_UPDATE_CLIP_PLANE,
+                      [&](const rockets::jsonrpc::Request& request) {
+                          ClipPlane newPlane;
+                          if (!::from_json(newPlane, request.message))
+                              return Response::invalidParams();
+                          auto& scene = _engine->getScene();
+                          if (auto plane = scene.getClipPlane(newPlane.getID()))
+                          {
+                              ::from_json(*plane, request.message);
+                              _rebroadcast(METHOD_UPDATE_CLIP_PLANE, request);
+                              _engine->triggerRender();
+                              return Response{to_json(true)};
+                          }
+                          return Response{to_json(false)};
+                      });
+        const RpcParameterDescription desc{
+            METHOD_UPDATE_CLIP_PLANE,
+            "Update a clip plane with the given coefficients", "clip_plane",
+            "Plane id and equation"};
+        _handleSchema(METHOD_UPDATE_CLIP_PLANE,
+                      buildJsonRpcSchemaRequest<ClipPlane, bool>(desc));
+    }
+
+    void _handleRemoveClipPlanes()
+    {
+        const RpcParameterDescription desc{
+            METHOD_REMOVE_CLIP_PLANES,
+            "Remove clip planes from the scene given their gids", "ids",
+            "Array of clip planes IDs"};
+        _handleRPC<size_ts, bool>(desc, [engine = _engine](const size_ts& ids) {
+            for (const auto id : ids)
+                engine->getScene().removeClipPlane(id);
+            engine->triggerRender();
+            return true;
+        });
+    }
+
     void _handleAddModel()
     {
         const RpcParameterDescription desc{
@@ -1126,9 +1225,9 @@ public:
             METHOD_GET_MODEL_PROPERTIES,
             "Get the properties of the given model", "id", "the model ID"};
 
-        _jsonrpcServer->bind<ModelID, PropertyMap>(
-            desc.methodName, [engine = _engine](const ModelID& id) {
-                auto model = engine->getScene().getModel(id.modelID);
+        _jsonrpcServer->bind<ObjectID, PropertyMap>(
+            desc.methodName, [engine = _engine](const ObjectID& id) {
+                auto model = engine->getScene().getModel(id.id);
                 if (!model)
                     throw rockets::jsonrpc::response_error("Model not found",
                                                            MODEL_NOT_FOUND);
@@ -1136,7 +1235,7 @@ public:
             });
 
         _handleSchema(METHOD_GET_MODEL_PROPERTIES,
-                      buildJsonRpcSchemaRequest<ModelID, PropertyMap>(desc));
+                      buildJsonRpcSchemaRequest<ObjectID, PropertyMap>(desc));
     }
 
     void _handleSetModelProperties()
@@ -1197,10 +1296,10 @@ public:
         _jsonrpcServer->bind(
             METHOD_MODEL_PROPERTIES_SCHEMA,
             [engine = _engine](const auto& request) {
-                ModelID modelID;
+                ObjectID modelID;
                 if (::from_json(modelID, request.message))
                 {
-                    auto model = engine->getScene().getModel(modelID.modelID);
+                    auto model = engine->getScene().getModel(modelID.id);
                     if (!model)
                         return Response{Response::Error{"Model not found",
                                                         MODEL_NOT_FOUND}};
@@ -1212,14 +1311,14 @@ public:
             });
 
         _handleSchema(METHOD_MODEL_PROPERTIES_SCHEMA,
-                      buildJsonRpcSchemaRequest<ModelID, std::string>(desc));
+                      buildJsonRpcSchemaRequest<ObjectID, std::string>(desc));
     }
 
     void _handleGetInstances()
     {
         const RpcParameterDescription desc{METHOD_GET_INSTANCES,
                                            "Get instances", "id, range",
-                                           "ModelID and result range"};
+                                           "Model id and result range"};
         _handleRPC<GetInstances, ModelInstances>(
             desc,
             [engine = _engine](const GetInstances& param)->ModelInstances {
