@@ -30,36 +30,10 @@
 
 #include <shared_mutex>
 
-SERIALIZATION_ACCESS(ClipPlane)
 SERIALIZATION_ACCESS(Scene)
 
 namespace brayns
 {
-
-class ClipPlane : public BaseObject
-{
-public:
-    ClipPlane(const Plane& plane) : _id(_nextID++), _plane(plane) {}
-
-    size_t getID() const { return _id; }
-
-    const Plane& getPlane() const { return _plane; };
-    void setPlane(const Plane& plane)
-    {
-        _updateValue(_plane, plane);
-    }
-
-    /** @internal */
-    ClipPlane() {}
-    /** @internal */
-    ClipPlane(const size_t id, const Plane& plane) : _id(id), _plane(plane) {}
-
-protected:
-    static size_t _nextID;
-    size_t _id = 0;
-    Plane _plane = {{0}};
-    SERIALIZATION_FRIEND(ClipPlane);
-};
 
 /**
 
@@ -179,10 +153,19 @@ public:
         return _parametersManager;
     }
 
+    /** Add a clip plane to the scene.
+     * @param plane The coefficients of the clip plane equation.
+     * @return The clip plane ID.
+     */
     BRAYNS_API size_t addClipPlane(const Plane& plane);
 
+    /** Get a clip plane by its ID.
+        @param id the plane ID.
+        @return A pointer to the clip plane or null if not found.
+     */
     BRAYNS_API ClipPlanePtr getClipPlane(const size_t id) const;
 
+    /** Remove a clip plane by its ID, or nop if not found. */
     BRAYNS_API void removeClipPlane(const size_t id);
 
     /**

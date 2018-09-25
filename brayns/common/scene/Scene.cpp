@@ -23,6 +23,7 @@
 #include <brayns/common/Transformation.h>
 #include <brayns/common/log.h>
 #include <brayns/common/material/Material.h>
+#include <brayns/common/scene/ClipPlane.h>
 #include <brayns/common/scene/Model.h>
 #include <brayns/common/utils/Utils.h>
 #include <brayns/io/simulation/CADiffusionSimulationHandler.h>
@@ -178,7 +179,8 @@ void Scene::removeModel(const size_t id)
         std::unique_lock<std::shared_timed_mutex> lock(_modelMutex);
         auto model =
             _remove(_modelDescriptors, id, &ModelDescriptor::getModelID);
-        model->callOnRemoved();
+        if (model)
+            model->callOnRemoved();
     }
     markModified();
 }
@@ -239,7 +241,7 @@ size_t Scene::addClipPlane(const Plane& plane)
     clipPlane->onModified([&](const BaseObject&){ markModified(); });
     _clipPlanes.emplace_back(std::move(clipPlane));
     markModified();
-    return (*_clipPlanes.rbegin())->getID();
+    return _clipPlanes.back()->getID();
 }
 
 ClipPlanePtr Scene::getClipPlane(const size_t id) const

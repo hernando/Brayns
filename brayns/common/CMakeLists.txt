@@ -64,6 +64,7 @@ set(BRAYNSCOMMON_PUBLIC_HEADERS
   mathTypes.h
   renderer/FrameBuffer.h
   renderer/Renderer.h
+  scene/ClipPlane.h
   scene/Model.h
   scene/Scene.h
   simulation/AbstractSimulationHandler.h

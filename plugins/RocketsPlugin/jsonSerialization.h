@@ -27,6 +27,7 @@
 #include <brayns/common/material/Material.h>
 #include <brayns/common/renderer/FrameBuffer.h>
 #include <brayns/common/renderer/Renderer.h>
+#include <brayns/common/scene/ClipPlane.h>
 #include <brayns/common/scene/Model.h>
 #include <brayns/common/scene/Scene.h>
 #include <brayns/common/transferFunction/TransferFunction.h>
@@ -356,8 +357,6 @@ inline void init(brayns::ClipPlane* g, ObjectHandler* h)
 
 inline void init(brayns::Scene* s, ObjectHandler* h)
 {
-    h->add_property("clip_planes", &s->_clipPlanes,
-                    Flags::IgnoreRead | Flags::Optional);
     h->add_property("bounds", &s->_bounds, Flags::IgnoreRead | Flags::Optional);
     h->add_property("models", &s->_modelDescriptors,
                     Flags::Optional | Flags::IgnoreRead);
