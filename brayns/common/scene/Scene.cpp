@@ -67,8 +67,6 @@ std::shared_ptr<T> _remove(std::vector<std::shared_ptr<T>>& list,
 
 namespace brayns
 {
-size_t ClipPlane::_nextID = 0;
-
 Scene::Scene(ParametersManager& parametersManager)
     : _parametersManager(parametersManager)
 {
@@ -175,14 +173,19 @@ size_t Scene::addModel(ModelDescriptorPtr model)
 
 void Scene::removeModel(const size_t id)
 {
+    bool removed = false;
     {
         std::unique_lock<std::shared_timed_mutex> lock(_modelMutex);
         auto model =
             _remove(_modelDescriptors, id, &ModelDescriptor::getModelID);
         if (model)
+        {
             model->callOnRemoved();
+            removed = true;
+        }
     }
-    markModified();
+    if (removed)
+        markModified();
 }
 
 ModelDescriptorPtr Scene::getModel(const size_t id) const
@@ -251,8 +254,8 @@ ClipPlanePtr Scene::getClipPlane(const size_t id) const
 
 void Scene::removeClipPlane(const size_t id)
 {
-    _remove(_clipPlanes, id);
-    markModified();
+    if (_remove(_clipPlanes, id))
+        markModified();
 }
 
 ModelDescriptorPtr Scene::load(Blob&& blob, const size_t materialID,

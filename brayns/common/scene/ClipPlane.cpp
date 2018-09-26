@@ -18,43 +18,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef ClipPlane_H
-#define ClipPlane_H
-
-#include <brayns/api.h>
-#include <brayns/common/BaseObject.h>
-#include <brayns/common/types.h>
-
-SERIALIZATION_ACCESS(ClipPlane)
+#include "ClipPlane.h"
 
 namespace brayns
 {
-class ClipPlane : public BaseObject
-{
-public:
-    ClipPlane(const Plane& plane)
-        : _id(_nextID++)
-        , _plane(plane)
-    {
-    }
-
-    size_t getID() const { return _id; }
-    const Plane& getPlane() const { return _plane; };
-    void setPlane(const Plane& plane) { _updateValue(_plane, plane); }
-    /** @internal */
-    ClipPlane() = default;
-    /** @internal */
-    ClipPlane(const size_t id, const Plane& plane)
-        : _id(id)
-        , _plane(plane)
-    {
-    }
-
-private:
-    static size_t _nextID;
-    size_t _id = 0;
-    Plane _plane = {{0}};
-    SERIALIZATION_FRIEND(ClipPlane);
-};
+size_t ClipPlane::_nextID = 0;
 }
-#endif // Model_H
+

@@ -13,6 +13,7 @@ set(BRAYNSCOMMON_SOURCES
   camera/Camera.cpp
   camera/FlyingModeManipulator.cpp
   camera/InspectCenterManipulator.cpp
+  scene/ClipPlane.cpp
   scene/Model.cpp
   scene/Scene.cpp
   material/Material.cpp

@@ -22,17 +22,12 @@
 
 #include <jsonSerialization.h>
 
-#include <tests/paths.h>
-
 #include "ClientServer.h"
-#include "PDiffHelpers.h"
 
 const std::string ADD_CLIP_PLANE("add-clip-plane");
 const std::string GET_CLIP_PLANES("get-clip-planes");
 const std::string REMOVE_CLIP_PLANES("remove-clip-planes");
 const std::string UPDATE_CLIP_PLANE("update-clip-plane");
-
-BOOST_AUTO_TEST_SUITE(clip_plane_api)
 
 BOOST_GLOBAL_FIXTURE(ClientServer);
 
@@ -76,22 +71,12 @@ BOOST_AUTO_TEST_CASE(update_plane)
     const brayns::Plane equation1{{1.0, 1.0, 1.0, 1.0}};
     const brayns::Plane equation2{{2.0, 2.0, 2.0, 2.0}};
 
-    bool called = false;
     const auto id1 = getScene().addClipPlane(equation1);
-    client.client.connect<brayns::ClipPlane>(
-        UPDATE_CLIP_PLANE,
-        [id1, equation2, &called](const brayns::ClipPlane& plane) {
-            BOOST_CHECK_EQUAL(plane.getID(), id1);
-            BOOST_CHECK(plane.getPlane() == equation2);
-            called = true;
-        });
-    process();
 
     makeRequest<brayns::ClipPlane, bool>(UPDATE_CLIP_PLANE,
                                          brayns::ClipPlane(id1, equation2));
-    client.process(); // This is for the scene update
-    client.process();
 
+    BOOST_CHECK(getScene().getClipPlane(id1)->getPlane() == equation2);
     getScene().removeClipPlane(id1);
 }
 
@@ -106,59 +91,58 @@ BOOST_AUTO_TEST_CASE(remove_planes)
     BOOST_CHECK(getScene().getClipPlanes().empty());
 }
 
-BOOST_AUTO_TEST_SUITE_END()
-
-BOOST_AUTO_TEST_SUITE(clip_plane_rendering)
-
-void testClipping(bool orthographic = false)
+BOOST_AUTO_TEST_CASE(notifications)
 {
-    const char* argv[] = {"clipPlanes",    "demo", "--disable-accumulation",
-                          "--window-size", "200",  "200"};
-    const int argc = sizeof(argv) / sizeof(char*);
+    Client client(ClientServer::instance());
 
-    brayns::Brayns brayns(argc, argv);
-    const std::string original =
-        orthographic ? "demo_ortho.png" : "snapshot.png";
+    bool called = false;
+    brayns::ClipPlane notified;
+    size_ts ids;
+    client.client.connect<brayns::ClipPlane>(
+        UPDATE_CLIP_PLANE,
+        [&notified, &called](const brayns::ClipPlane& plane) {
+            notified = plane;
+            called = true;
+        });
+    client.client.connect<size_ts>(REMOVE_CLIP_PLANES,
+                                   [&ids, &called](const size_ts& ids_) {
+                                       ids = ids_;
+                                       called = true;
+                                   });
+    process();
 
-    const std::string clipped = orthographic ? "demo_clipped_ortho.png"
-                                             : "demo_clipped_perspective.png";
+    auto added =
+        makeRequest<brayns::Plane, brayns::ClipPlane>(ADD_CLIP_PLANE,
+                                                      {{1.0, 1.0, 1.0, 1.0}});
 
-    auto& engine = brayns.getEngine();
-    auto& scene = engine.getScene();
-    auto& camera = engine.getCamera();
+    process();
+    for (size_t attempts = 0; attempts != 100 && !called; ++attempts)
+        client.process();
+    BOOST_REQUIRE(called);
 
-    camera.setInitialState(scene.getBounds());
-    if (orthographic)
-        camera.setCurrentType("orthographic");
-    brayns.commitAndRender();
-    BOOST_CHECK(compareTestImage(original, engine.getFrameBuffer()));
+    BOOST_CHECK_EQUAL(notified.getID(), added.getID());
+    BOOST_CHECK(notified.getPlane() == added.getPlane());
 
-    auto id1 = scene.addClipPlane({1.0, 0.0, 0.0, -0.5});
-    auto id2 = scene.addClipPlane({0.0, -1.0, 0.0, 0.5});
-    brayns.commitAndRender();
-    BOOST_CHECK(compareTestImage(clipped, engine.getFrameBuffer()));
+    added.setPlane({{2.0, 2.0, 2.0, 2.0}});
+    makeRequest<brayns::ClipPlane, bool>(UPDATE_CLIP_PLANE, added);
+    notified = brayns::ClipPlane();
 
-    scene.removeClipPlane(id1);
-    scene.removeClipPlane(id2);
-    brayns.commitAndRender();
-    BOOST_CHECK(
-        compareTestImage(original, engine.getFrameBuffer()));
+    process();
+    called = false;
+    for (size_t attempts = 0; attempts != 100 && !called; ++attempts)
+        client.process();
+    BOOST_REQUIRE(called);
 
-    id1 = scene.addClipPlane({1.0, 0.0, 0.0, -0.5});
-    id2 = scene.addClipPlane({0.0, 1.0, 0.0, 0.5});
-    scene.getClipPlane(id2)->setPlane({0.0, -1.0, 0.0, 0.5});
-    brayns.commitAndRender();
-    BOOST_CHECK(compareTestImage(clipped, engine.getFrameBuffer()));
+    BOOST_CHECK_EQUAL(notified.getID(), added.getID());
+    BOOST_CHECK(notified.getPlane() == added.getPlane());
+
+    makeRequest<size_ts, bool>(REMOVE_CLIP_PLANES, {added.getID()});
+
+    process();
+    called = false;
+    for (size_t attempts = 0; attempts != 100 && !called; ++attempts)
+        client.process();
+    BOOST_REQUIRE(called);
+
+    BOOST_CHECK(ids == size_ts{added.getID()});
 }
-
-BOOST_AUTO_TEST_CASE(perspective)
-{
-    testClipping();
-}
-
-BOOST_AUTO_TEST_CASE(orthographic)
-{
-    testClipping(true);
-}
-
-BOOST_AUTO_TEST_SUITE_END()

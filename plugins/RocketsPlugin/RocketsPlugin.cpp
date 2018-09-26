@@ -350,15 +350,15 @@ public:
     }
 
     void _rebroadcast(const std::string& endpoint,
-                      const rockets::ws::Request& request)
+                      const std::string& message,
+                      const std::set<uintptr_t>& filter)
     {
-        _delayedNotify([&, request] {
+        _delayedNotify([&, message, filter] {
             if (_rocketsServer->getConnectionCount() > 1)
             {
                 const auto& msg =
-                    rockets::jsonrpc::makeNotification(endpoint,
-                                                       request.message);
-                _rocketsServer->broadcastText(msg, {request.clientID});
+                    rockets::jsonrpc::makeNotification(endpoint, message);
+                _rocketsServer->broadcastText(msg, filter);
             }
         });
     }
@@ -370,14 +370,14 @@ public:
     struct ScopedCurrentClient
     {
         ScopedCurrentClient(uintptr_t& currentClientID, const uintptr_t newID)
-            : _currentClientID(&currentClientID)
+            : _currentClientID(currentClientID)
         {
-            *_currentClientID = newID;
+            _currentClientID = newID;
         }
 
-        ~ScopedCurrentClient() { *_currentClientID = NO_CURRENT_CLIENT; }
+        ~ScopedCurrentClient() { _currentClientID = NO_CURRENT_CLIENT; }
     private:
-        uintptr_t* _currentClientID;
+        uintptr_t& _currentClientID;
     };
 
     void _bindEndpoint(const std::string& method,
@@ -1109,10 +1109,12 @@ public:
             "Add a clip plane; returns the clip plane descriptor", "plane",
             "An array of 4 floats"};
 
-        _handleRPC<Plane, ClipPlanePtr>(desc, [engine = _engine](
-                                                  const Plane& plane) {
-            auto& scene = engine->getScene();
-            return scene.getClipPlane(scene.addClipPlane(plane));
+        _handleRPC<Plane, ClipPlanePtr>(desc, [&](const Plane& plane) {
+            auto& scene = _engine->getScene();
+            auto clipPlane = scene.getClipPlane(scene.addClipPlane(plane));
+            _rebroadcast(METHOD_UPDATE_CLIP_PLANE, to_json(clipPlane),
+                         {_currentClientID});
+            return clipPlane;
         });
     }
 
@@ -1127,27 +1129,22 @@ public:
 
     void _handleUpdateClipPlane()
     {
-        _bindEndpoint(METHOD_UPDATE_CLIP_PLANE,
-                      [&](const rockets::jsonrpc::Request& request) {
-                          ClipPlane newPlane;
-                          if (!::from_json(newPlane, request.message))
-                              return Response::invalidParams();
-                          auto& scene = _engine->getScene();
-                          if (auto plane = scene.getClipPlane(newPlane.getID()))
-                          {
-                              ::from_json(*plane, request.message);
-                              _rebroadcast(METHOD_UPDATE_CLIP_PLANE, request);
-                              _engine->triggerRender();
-                              return Response{to_json(true)};
-                          }
-                          return Response{to_json(false)};
-                      });
         const RpcParameterDescription desc{
             METHOD_UPDATE_CLIP_PLANE,
             "Update a clip plane with the given coefficients", "clip_plane",
             "Plane id and equation"};
-        _handleSchema(METHOD_UPDATE_CLIP_PLANE,
-                      buildJsonRpcSchemaRequest<ClipPlane, bool>(desc));
+        _handleRPC<ClipPlane, bool>(desc, [&](const ClipPlane& newPlane) {
+            auto& scene = _engine->getScene();
+            if (auto plane = scene.getClipPlane(newPlane.getID()))
+            {
+                plane->setPlane(newPlane.getPlane());
+                _rebroadcast(METHOD_UPDATE_CLIP_PLANE, to_json(newPlane),
+                             {_currentClientID});
+                _engine->triggerRender();
+                return true;
+            }
+            return false;
+        });
     }
 
     void _handleRemoveClipPlanes()
@@ -1156,10 +1153,12 @@ public:
             METHOD_REMOVE_CLIP_PLANES,
             "Remove clip planes from the scene given their gids", "ids",
             "Array of clip planes IDs"};
-        _handleRPC<size_ts, bool>(desc, [engine = _engine](const size_ts& ids) {
+        _handleRPC<size_ts, bool>(desc, [&](const size_ts& ids) {
             for (const auto id : ids)
-                engine->getScene().removeClipPlane(id);
-            engine->triggerRender();
+                _engine->getScene().removeClipPlane(id);
+            _rebroadcast(METHOD_REMOVE_CLIP_PLANES, to_json(ids),
+                         {_currentClientID});
+            _engine->triggerRender();
             return true;
         });
     }
@@ -1275,7 +1274,8 @@ public:
                 model->setProperties(props);
                 _engine->triggerRender();
 
-                this->_rebroadcast(METHOD_SET_MODEL_PROPERTIES, request);
+                this->_rebroadcast(METHOD_SET_MODEL_PROPERTIES,
+                                   request.message, {request.clientID});
 
                 return Response{to_json(true)};
             }
@@ -1364,7 +1364,8 @@ public:
                 scene.markModified(false);
 
                 _engine->triggerRender();
-                _rebroadcast(METHOD_UPDATE_INSTANCE, request);
+                _rebroadcast(METHOD_UPDATE_INSTANCE, request.message,
+                             {request.clientID});
 
                 return Response{to_json(true)};
             });
