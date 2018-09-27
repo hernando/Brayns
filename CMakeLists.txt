@@ -105,8 +105,8 @@ endif()
 list(APPEND LCOV_EXCLUDE '${PROJECT_SOURCE_DIR}/perceptualdiff/*')
 
 # OSPRay rendering engine
-common_find_package(ospray 1.5 SYSTEM)
-set(_ospray_unsupported_version 1.6)
+common_find_package(ospray 1.6 SYSTEM)
+set(_ospray_unsupported_version 1.7)
 if(OSPRAY_FOUND AND OSPRAY_VERSION VERSION_LESS _ospray_unsupported_version)
   option(BRAYNS_OSPRAY_ENABLED "Activate OSPRay rendering engine" ON)
 else()

@@ -95,6 +95,7 @@ set(BRAYNSOSPRAYENGINEPLUGIN_LINK_LIBRARIES
 
 # reuse ispc setup and macros from ospray
 list(APPEND CMAKE_MODULE_PATH ${OSPRAY_CMAKE_ROOT})
+message(STATUS ${OSPRAY_CMAKE_ROOT})
 include(ispc)
 
 # Enable/disable use of hardware randomizer
