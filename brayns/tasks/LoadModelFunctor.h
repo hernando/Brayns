@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <brayns/common/loader/Loader.h>
 #include <brayns/common/scene/Model.h>
 #include <brayns/common/tasks/TaskFunctor.h>
 #include <brayns/common/types.h>
@@ -33,7 +34,8 @@ namespace brayns
 class LoadModelFunctor : public TaskFunctor
 {
 public:
-    LoadModelFunctor(Engine& engine, const ModelParams& params);
+    LoadModelFunctor(Engine& engine, const ModelParams& params,
+                     const LoaderPropertyMap& properties);
     LoadModelFunctor(LoadModelFunctor&&) = default;
     ModelDescriptorPtr operator()(Blob&& blob);
     ModelDescriptorPtr operator()();
@@ -42,9 +44,11 @@ private:
     ModelDescriptorPtr _performLoad(
         const std::function<ModelDescriptorPtr()>& loadData);
 
-    ModelDescriptorPtr _loadData(Blob&& blob, const ModelParams& params);
+    ModelDescriptorPtr _loadData(Blob&& blob, const ModelParams& params,
+                                 const LoaderPropertyMap& properties);
     ModelDescriptorPtr _loadData(const std::string& path,
-                                 const ModelParams& params);
+                                 const ModelParams& params,
+                                 const LoaderPropertyMap& properties);
 
     void _updateProgress(const std::string& message, const size_t increment);
 
@@ -54,5 +58,6 @@ private:
     ModelParams _params;
     size_t _currentProgress{0};
     size_t _nextTic{0};
+    LoaderPropertyMap _properties;
 };
 }

@@ -23,6 +23,8 @@
 
 #include <vmmlib/vmmlib.hpp>
 
+#include <array>
+
 namespace brayns
 {
 /**

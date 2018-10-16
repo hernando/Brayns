@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <brayns/common/loader/Loader.h>
 #include <brayns/common/scene/Model.h>
 #include <brayns/common/tasks/Task.h>
 
@@ -51,7 +52,8 @@ struct BinaryParam : ModelParams
 class AddModelFromBlobTask : public Task<ModelDescriptorPtr>
 {
 public:
-    AddModelFromBlobTask(const BinaryParam& param, Engine& engine);
+    AddModelFromBlobTask(const BinaryParam& param, Engine& engine,
+                         const LoaderPropertyMap& properties);
 
     void appendBlob(const std::string& blob);
 

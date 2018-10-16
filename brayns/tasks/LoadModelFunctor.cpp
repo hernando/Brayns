@@ -38,21 +38,24 @@ namespace brayns
 {
 const float TOTAL_PROGRESS = 100.f;
 
-LoadModelFunctor::LoadModelFunctor(Engine& engine, const ModelParams& params)
+LoadModelFunctor::LoadModelFunctor(Engine& engine, const ModelParams& params,
+                                   const LoaderPropertyMap& properties)
     : _engine(engine)
     , _params(params)
+    , _properties(properties)
 {
 }
 
 ModelDescriptorPtr LoadModelFunctor::operator()(Blob&& blob)
 {
-    return _performLoad([&] { return _loadData(std::move(blob), _params); });
+    return _performLoad(
+        [&] { return _loadData(std::move(blob), _params, _properties); });
 }
 
 ModelDescriptorPtr LoadModelFunctor::operator()()
 {
     const auto& path = _params.getPath();
-    return _performLoad([&] { return _loadData(path, _params); });
+    return _performLoad([&] { return _loadData(path, _params, _properties); });
 }
 
 ModelDescriptorPtr LoadModelFunctor::_performLoad(
@@ -70,18 +73,19 @@ ModelDescriptorPtr LoadModelFunctor::_performLoad(
     }
 }
 
-ModelDescriptorPtr LoadModelFunctor::_loadData(Blob&& blob,
-                                               const ModelParams& params)
+ModelDescriptorPtr LoadModelFunctor::_loadData(
+    Blob&& blob, const ModelParams& params, const LoaderPropertyMap& properties)
 {
     return _engine.getScene().loadModel(std::move(blob), NO_MATERIAL, params,
-                                        {_getProgressFunc()});
+                                        {_getProgressFunc()}, properties);
 }
 
-ModelDescriptorPtr LoadModelFunctor::_loadData(const std::string& path,
-                                               const ModelParams& params)
+ModelDescriptorPtr LoadModelFunctor::_loadData(
+    const std::string& path, const ModelParams& params,
+    const LoaderPropertyMap& properties)
 {
     return _engine.getScene().loadModel(path, NO_MATERIAL, params,
-                                        {_getProgressFunc()});
+                                        {_getProgressFunc()}, properties);
 }
 
 void LoadModelFunctor::_updateProgress(const std::string& message,

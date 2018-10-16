@@ -33,6 +33,17 @@
 
 #include <boost/filesystem.hpp>
 
+namespace
+{
+using Property = brayns::PropertyMap::Property;
+const Property PROP_RADIUS_MULTIPLIER = {"radiusMultiplier",
+                                         "Radius multiplier", 1.0};
+const Property PROP_COLOR_SCHEME = {"colorScheme", "Color scheme",
+                                    int32_t(brayns::ColorScheme::none),
+                                    brayns::enumerateColorSchemeEnums()};
+const auto LOADER_NAME = "protein";
+}
+
 namespace brayns
 {
 /** Structure containing the positions of the proteins in space
@@ -310,10 +321,8 @@ static AtomicRadius atomic_radii[colorMapSize] = // atomic radii in microns
      {"OXT", 25.f, 112},
      {"P", 25.f, 113}};
 
-ProteinLoader::ProteinLoader(Scene& scene,
-                             const GeometryParameters& geometryParameters)
+ProteinLoader::ProteinLoader(Scene& scene)
     : Loader(scene)
-    , _geometryParameters(geometryParameters)
 {
 }
 
@@ -325,9 +334,17 @@ bool ProteinLoader::isSupported(const std::string& filename BRAYNS_UNUSED,
 }
 
 ModelDescriptorPtr ProteinLoader::importFromFile(
-    const std::string& fileName, const LoaderProgress&, const size_t index,
+    const std::string& fileName, const LoaderProgress&,
+    const LoaderPropertyMap& properties, const size_t index,
     const size_t defaultMaterialId BRAYNS_UNUSED) const
 {
+    const float radiusMultiplier =
+        properties.getProperty<double>(PROP_RADIUS_MULTIPLIER.name, 1.0);
+
+    const auto colorScheme = static_cast<ColorScheme>(
+        properties.getProperty<int32_t>(PROP_COLOR_SCHEME.name,
+                                        int32_t(ColorScheme::none)));
+
     std::ifstream file(fileName.c_str());
     if (!file.is_open())
         throw std::runtime_error("Could not open " + fileName);
@@ -401,7 +418,6 @@ ModelDescriptorPtr ProteinLoader::importFromFile(
             atom.materialId = 0;
             i = 0;
             bool found = false;
-            const auto colorScheme = _geometryParameters.getColorScheme();
             while (!found && i < colorMapSize)
             {
                 if (atomName == colorMap[i].symbol)
@@ -441,8 +457,7 @@ ModelDescriptorPtr ProteinLoader::importFromFile(
             const auto center = 0.01f * atom.position;
 
             // Convert radius from angstrom
-            const auto radius = 0.0001f * atom.radius *
-                                _geometryParameters.getRadiusMultiplier();
+            const auto radius = 0.0001f * atom.radius * radiusMultiplier;
 
             const auto materialId = colorScheme == ColorScheme::protein_by_id
                                         ? index
@@ -473,5 +488,17 @@ ModelDescriptorPtr ProteinLoader::importFromFile(
         std::make_shared<ModelDescriptor>(std::move(model), fileName);
     modelDescriptor->setTransformation(transformation);
     return modelDescriptor;
+}
+
+LoaderSupport ProteinLoader::getLoaderSupport() const
+{
+    return {LOADER_NAME, {"pdb", "pdb1"}};
+}
+std::pair<std::string, PropertyMap> ProteinLoader::getLoaderProperties() const
+{
+    PropertyMap pm;
+    pm.setProperty(PROP_COLOR_SCHEME);
+    pm.setProperty(PROP_RADIUS_MULTIPLIER);
+    return {LOADER_NAME, pm};
 }
 }

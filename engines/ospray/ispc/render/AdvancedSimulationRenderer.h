@@ -22,6 +22,8 @@
 
 #include "utils/SimulationRenderer.h"
 
+#include <map>
+
 namespace brayns
 {
 /**
@@ -41,6 +43,13 @@ public:
         diffuse,
         electron
     };
+
+    static std::map<std::string, int32_t> enumerateShadingEnums()
+    {
+        return {{"none", int32_t(Shading::none)},
+                {"diffuse", int32_t(Shading::diffuse)},
+                {"electron", int32_t(Shading::electron)}};
+    }
 
     /**
        Returns the class name as a string

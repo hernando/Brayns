@@ -29,7 +29,8 @@
 
 namespace brayns
 {
-AddModelTask::AddModelTask(const ModelParams& modelParams, Engine& engine)
+AddModelTask::AddModelTask(const ModelParams& modelParams, Engine& engine,
+                           const LoaderPropertyMap& properties)
 {
     const auto& registry = engine.getScene().getLoaderRegistry();
 
@@ -41,7 +42,7 @@ AddModelTask::AddModelTask(const ModelParams& modelParams, Engine& engine)
     if (!registry.isSupportedFile(path))
         throw UNSUPPORTED_TYPE;
 
-    LoadModelFunctor functor{engine, modelParams};
+    LoadModelFunctor functor{engine, modelParams, properties};
     functor.setCancelToken(_cancelToken);
     functor.setProgressFunc([& progress = progress](const auto& msg, auto,
                                                     auto amount) {
