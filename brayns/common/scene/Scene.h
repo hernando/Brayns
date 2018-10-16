@@ -214,7 +214,8 @@ public:
      * @return the model that has been added to the scene
      */
     ModelDescriptorPtr loadModel(Blob&& blob, const size_t materialID,
-                                 const ModelParams& params, LoaderProgress cb);
+                                 const ModelParams& params, LoaderProgress cb,
+                                 const LoaderPropertyMap& properties);
 
     /**
      * Load the model from the given file.
@@ -227,7 +228,8 @@ public:
      */
     ModelDescriptorPtr loadModel(const std::string& path,
                                  const size_t materialID,
-                                 const ModelParams& params, LoaderProgress cb);
+                                 const ModelParams& params, LoaderProgress cb,
+                                 const LoaderPropertyMap& properties);
 
     void visitModels(const std::function<void(Model&)>& functor);
 

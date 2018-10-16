@@ -51,25 +51,28 @@ typedef std::map<size_t, Vector3fs> ProteinPositions;
 class MolecularSystemReader : public Loader
 {
 public:
-    MolecularSystemReader(Scene& scene,
-                          const GeometryParameters& geometryParameters);
+    MolecularSystemReader(Scene& scene);
+
+    LoaderSupport getLoaderSupport() const final;
+    std::pair<std::string, PropertyMap> getLoaderProperties() const final;
 
     bool isSupported(const std::string& filename,
                      const std::string& extension) const final;
     ModelDescriptorPtr importFromFile(const std::string& fileName,
                                       const LoaderProgress& callback,
+                                      const LoaderPropertyMap& properties,
                                       const size_t index = 0,
                                       const size_t = NO_MATERIAL) const final;
 
     ModelDescriptorPtr importFromBlob(Blob&&, const LoaderProgress&,
+                                      const LoaderPropertyMap& properties
+                                          BRAYNS_UNUSED,
                                       const size_t, const size_t) const final
     {
-        throw std::runtime_error("Unsupported");
+        throw std::runtime_error("Loading from blob not supported");
     }
 
 private:
-    const GeometryParameters& _geometryParameters;
-
     struct LoaderData
     {
         std::string _proteinFolder;
@@ -83,7 +86,8 @@ private:
         LoaderProgress _callback;
     };
 
-    bool _createScene(LoaderData& data) const;
+    bool _createScene(LoaderData& data,
+                      const LoaderPropertyMap& properties) const;
     bool _loadConfiguration(const std::string& fileName,
                             LoaderData& data) const;
     bool _loadProteins(LoaderData& data) const;

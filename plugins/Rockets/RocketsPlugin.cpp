@@ -30,6 +30,7 @@
 
 #include <brayns/tasks/AddModelFromBlobTask.h>
 #include <brayns/tasks/AddModelTask.h>
+#include <brayns/tasks/LoadModelFunctor.h>
 
 #ifdef BRAYNS_USE_LIBUV
 #include <uvw.hpp>
@@ -84,6 +85,7 @@ const std::string METHOD_SNAPSHOT = "snapshot";
 const std::string METHOD_ADD_CLIP_PLANE = "add-clip-plane";
 const std::string METHOD_GET_CLIP_PLANES = "get-clip-planes";
 const std::string METHOD_GET_INSTANCES = "get-instances";
+const std::string METHOD_GET_LOADERS = "get-loaders";
 const std::string METHOD_GET_MODEL_PROPERTIES = "get-model-properties";
 const std::string METHOD_GET_MODEL_TRANSFER_FUNCTION =
     "get-model-transfer-function";
@@ -105,6 +107,8 @@ const std::string METHOD_CHUNK = "chunk";
 const std::string METHOD_QUIT = "quit";
 const std::string METHOD_RESET_CAMERA = "reset-camera";
 const std::string METHOD_STREAM_TO = "stream-to";
+
+const std::string LOADERS_SCHEMA = "loaders-schema";
 
 const std::string JSON_TYPE = "application/json";
 
@@ -971,6 +975,8 @@ public:
         _handleGetInstances();
         _handleUpdateInstance();
 
+        _handleGetLoaders();
+        _handleloadersSchema();
         _handlePropertyObject(_engine.getCamera(), ENDPOINT_CAMERA_PARAMS,
                               "camera");
         _handlePropertyObject(_engine.getRenderer(), ENDPOINT_RENDERER_PARAMS,
@@ -1210,10 +1216,9 @@ public:
             "size, type, name, transformation, etc."};
 
         _handleTask<BinaryParam, ModelDescriptorPtr>(
-            desc,
-            std::bind(&BinaryRequests::createTask, std::ref(_binaryRequests),
-                      std::placeholders::_1, std::placeholders::_2,
-                      std::ref(_engine)));
+            desc, std::bind(&BinaryRequests::createTask,
+                            std::ref(_binaryRequests), std::placeholders::_1,
+                            std::placeholders::_2, std::ref(_engine)));
     }
 
     void _handleChunk()
@@ -1342,9 +1347,13 @@ public:
             Execution::async, "model_param",
             "Model parameters including name, path, transformation, etc."};
 
-        auto func = [& engine = _engine](const auto& modelParam, const auto)
-        {
-            return std::make_shared<AddModelTask>(modelParam, engine);
+        auto func = [&](const ModelParams& modelParams, const auto) {
+            const auto props =
+                parsePossibleProperties(modelParams._loaderPropertiesJSON);
+            LoaderPropertyMap lpm;
+            lpm.properties = props;
+
+            return std::make_shared<AddModelTask>(modelParams, _engine, lpm);
         };
         _handleTask<ModelParams, ModelDescriptorPtr>(desc, func);
     }
@@ -1398,7 +1407,7 @@ public:
             "Get the properties of the given model", "id", "the model ID"};
 
         _jsonrpcServer->bind<ObjectID, PropertyMap>(
-            desc.methodName, [&engine = _engine](const ObjectID& id) {
+            desc.methodName, [& engine = _engine](const ObjectID& id) {
                 auto model = engine.getScene().getModel(id.id);
                 if (!model)
                     throw rockets::jsonrpc::response_error("Model not found",
@@ -1441,7 +1450,7 @@ public:
 
         _jsonrpcServer->bind(
             METHOD_MODEL_PROPERTIES_SCHEMA,
-            [&engine = _engine](const auto& request) {
+            [& engine = _engine](const auto& request) {
                 ObjectID modelID;
                 if (::from_json(modelID, request.message))
                 {
@@ -1467,7 +1476,7 @@ public:
                                            "Model id and result range"};
         _handleRPC<GetInstances, ModelInstances>(
             desc,
-            [&engine = _engine](const GetInstances& param)->ModelInstances {
+            [& engine = _engine](const GetInstances& param)->ModelInstances {
                 auto id = param.modelID;
                 auto& scene = engine.getScene();
                 auto model = scene.getModel(id);
@@ -1482,6 +1491,16 @@ public:
                                                unsigned(instances.size()))};
                 return {instances.begin() + range.x(),
                         instances.begin() + range.y()};
+            });
+    }
+
+    void _handleGetLoaders()
+    {
+        _handleRPC<std::vector<LoaderSupport>>(
+            {METHOD_GET_LOADERS, "Get all loaders"},
+            [&]() {
+                auto& scene = _engine.getScene();
+                return scene.getLoaderRegistry().getLoaderSupport();
             });
     }
 
@@ -1569,6 +1588,45 @@ public:
                       buildJsonSchema(props, hyphenatedToCamelCase(endpoint)));
     }
 
+    void _handleloadersSchema()
+    {
+        const RpcDescription desc{LOADERS_SCHEMA,
+                                  "Get the schema for all loaders"};
+
+        _bindEndpoint(
+            LOADERS_SCHEMA, [&](const rockets::jsonrpc::Request& /*request*/) {
+                std::vector<std::pair<std::string, PropertyMap>> props =
+                    _engine.getScene()
+                        .getLoaderRegistry()
+                        .generateLoaderPropertyMaps();
+
+                std::vector<std::string> schemas;
+                for (const auto& kv : props)
+                    schemas.push_back(buildJsonSchema(kv.second, kv.first));
+
+                const size_t numSchemas = schemas.size();
+                if (numSchemas == 0)
+                    return Response{"[]"};
+
+                std::string result = "[\n";
+                result += schemas.front();
+
+                for (size_t i = 1; i < numSchemas; i++)
+                    result += ",\n" + schemas[i];
+                result += "\n]";
+
+                return Response{std::move(result)};
+            });
+
+        const std::string schema =
+            "{\"title\":\"loaders-schema\",\"description\":\"Get the "
+            "schema for all "
+            "loaders\",\"type\":\"method\",\"async\":false,\"returns\":{"
+            "\"type\":\"array\",\"items\":{\"type\":\"object\"}},\"params\":[]"
+            "}";
+        _handleSchema(LOADERS_SCHEMA, schema);
+    }
+
     Engine& _engine;
 
     std::unordered_map<std::string, std::pair<std::mutex, Throttle>> _throttle;
@@ -1612,7 +1670,6 @@ void RocketsPlugin::preRender()
 {
     _impl->preRender();
 }
-
 void RocketsPlugin::postRender()
 {
     _impl->postRender();

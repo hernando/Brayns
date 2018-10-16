@@ -31,14 +31,15 @@
 namespace brayns
 {
 AddModelFromBlobTask::AddModelFromBlobTask(const BinaryParam& param,
-                                           Engine& engine)
+                                           Engine& engine,
+                                           const LoaderPropertyMap& properties)
     : _param(param)
 {
     _checkValidity(engine);
 
     _blob.reserve(param.size);
 
-    LoadModelFunctor functor{engine, param};
+    LoadModelFunctor functor{engine, param, properties};
     functor.setCancelToken(_cancelToken);
     functor.setProgressFunc([& progress = progress](const auto& msg, auto,
                                                     auto amount) {

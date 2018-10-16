@@ -36,6 +36,15 @@
 #include <ospray/SDK/camera/PerspectiveCamera.h> // enum StereoMode
 #include <ospray/version.h>
 
+inline std::map<std::string, int32_t> enumerateStereoModeEnums()
+{
+    using StereoMode = ospray::PerspectiveCamera::StereoMode;
+    return {{"None", int32_t(StereoMode::OSP_STEREO_NONE)},
+            {"Left eye", int32_t(StereoMode::OSP_STEREO_LEFT)},
+            {"Right eye", int32_t(StereoMode::OSP_STEREO_RIGHT)},
+            {"Side by side", int32_t(StereoMode::OSP_STEREO_SIDE_BY_SIDE)}};
+}
+
 namespace brayns
 {
 OSPRayEngine::OSPRayEngine(ParametersManager& parametersManager)
@@ -276,10 +285,9 @@ void OSPRayEngine::_createRenderers()
             properties.setProperty(
                 {"detectionDistance", "Detection distance", 15.});
             properties.setProperty(
-                {"shading",
-                 "Shading",
-                 (int)AdvancedSimulationRenderer::Shading::none,
-                 {"None", "Diffuse", "Electron"}});
+                {"shading", "Shading",
+                 int32_t(AdvancedSimulationRenderer::Shading::none),
+                 AdvancedSimulationRenderer::enumerateShadingEnums()});
             properties.setProperty(
                 {"shadows", "Shadow intensity", 0., {0., 1.}});
             properties.setProperty(
@@ -301,8 +309,9 @@ void OSPRayEngine::_createRenderers()
         {
             properties.setProperty(
                 {"aoDistance", "Ambient occlusion distance", 10000.});
-            properties.setProperty(
-                {"aoSamples", "Ambient occlusion samples", 1, {0, 128}});
+            properties.setProperty({"aoSamples", "Ambient occlusion samples",
+                                    int32_t(1),
+                                    std::pair<int32_t, int32_t>{0, 128}});
             properties.setProperty({"aoTransparencyEnabled",
                                     "Ambient occlusion transparency", true});
             properties.setProperty(
@@ -356,11 +365,9 @@ void OSPRayEngine::_createCameras()
     auto ospCamera = std::make_shared<OSPRayCamera>();
 
     using StereoMode = ospray::PerspectiveCamera::StereoMode;
-    PropertyMap::Property stereoProperty{"stereoMode",
-                                         "Stereo mode",
-                                         (int)StereoMode::OSP_STEREO_NONE,
-                                         {"None", "Left eye", "Right eye",
-                                          "Side by side"}};
+    PropertyMap::Property stereoProperty{"stereoMode", "Stereo mode",
+                                         int32_t(StereoMode::OSP_STEREO_NONE),
+                                         enumerateStereoModeEnums()};
     PropertyMap::Property fovy{"fovy", "Field of view", 45., {.1, 360.}};
     PropertyMap::Property aspect{"aspect", "Aspect ratio", 1.};
     aspect.markReadOnly();
@@ -397,10 +404,9 @@ void OSPRayEngine::_createCameras()
         if (camera == "cylindricStereo")
         {
             properties.setProperty(
-                {"stereoMode",
-                 "Stereo mode",
-                 static_cast<int>(StereoMode::OSP_STEREO_SIDE_BY_SIDE),
-                 {"None", "Left eye", "Right eye", "Side by side"}});
+                {"stereoMode", "Stereo mode",
+                 static_cast<int32_t>(StereoMode::OSP_STEREO_SIDE_BY_SIDE),
+                 enumerateStereoModeEnums()});
         }
         ospCamera->setProperties(camera, properties);
     }

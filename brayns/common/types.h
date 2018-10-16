@@ -220,6 +220,23 @@ enum class ColorScheme
     protein_residues = 11
 };
 
+inline std::map<std::string, int32_t> enumerateColorSchemeEnums()
+{
+    return {{"none", int32_t(ColorScheme::none)},
+            {"neuron_by_id", int32_t(ColorScheme::neuron_by_id)},
+            {"neuron_by_type", int32_t(ColorScheme::neuron_by_type)},
+            {"neuron_by_segment_type",
+             int32_t(ColorScheme::neuron_by_segment_type)},
+            {"neuron_by_layer", int32_t(ColorScheme::neuron_by_layer)},
+            {"neuron_by_mtype", int32_t(ColorScheme::neuron_by_mtype)},
+            {"neuron_by_etype", int32_t(ColorScheme::neuron_by_etype)},
+            {"neuron_by_target", int32_t(ColorScheme::neuron_by_target)},
+            {"protein_by_id", int32_t(ColorScheme::protein_by_id)},
+            {"protein_atoms", int32_t(ColorScheme::protein_atoms)},
+            {"protein_chains", int32_t(ColorScheme::protein_chains)},
+            {"protein_residues", int32_t(ColorScheme::protein_residues)}};
+}
+
 /** Geometry quality */
 enum class GeometryQuality
 {
@@ -227,6 +244,13 @@ enum class GeometryQuality
     medium,
     high
 };
+
+inline std::map<std::string, int32_t> enumerateGeometryQualityEnums()
+{
+    return {{"low", int32_t(GeometryQuality::low)},
+            {"medium", int32_t(GeometryQuality::medium)},
+            {"high", int32_t(GeometryQuality::high)}};
+}
 
 /** Morphology element types */
 enum class MorphologySectionType
@@ -329,6 +353,18 @@ enum class DataType
     INT16,
     INT32
 };
+
+inline std::map<std::string, int32_t> enumerateDataTypeEnums()
+{
+    return {{"FLOAT", int32_t(DataType::FLOAT)},
+            {"DOUBLE", int32_t(DataType::DOUBLE)},
+            {"UINT8", int32_t(DataType::UINT8)},
+            {"UINT16", int32_t(DataType::UINT16)},
+            {"UINT32", int32_t(DataType::UINT32)},
+            {"INT8", int32_t(DataType::INT8)},
+            {"INT16", int32_t(DataType::INT16)},
+            {"INT32", int32_t(DataType::INT32)}};
+}
 
 class PropertyMap;
 class PropertyObject;

@@ -36,6 +36,11 @@ public:
     /** Register the given loader. */
     void registerLoader(std::unique_ptr<Loader> loader);
 
+    std::vector<LoaderSupport> getLoaderSupport() const;
+
+    std::vector<std::pair<std::string, PropertyMap>>
+        generateLoaderPropertyMaps() const;
+
     /**
      * @return true if any of the registered loaders can handle the given file
      */
@@ -47,16 +52,12 @@ public:
     bool isSupportedType(const std::string& type) const;
 
     /**
-     * Get a loader that can load the given filename.
+     * Get a loader that matches the provided name or filetype or loader name.
      * @throw std::runtime_error if no loader found.
      */
-    const Loader& getLoaderFromFilename(const std::string& filename) const;
-
-    /**
-     * Get a loader that can load the given filetype.
-     * @throw std::runtime_error if no loader found.
-     */
-    const Loader& getLoaderFromFiletype(const std::string& filetype) const;
+    const Loader& getSuitableLoader(const std::string& filename,
+                                    const std::string& filetype,
+                                    const std::string& loaderName) const;
 
     /**
      * Load the given file or folder into the given scene by choosing the first

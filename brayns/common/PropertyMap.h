@@ -20,8 +20,8 @@
 
 #pragma once
 
+#include "types.h"
 #include <boost/any.hpp>
-#include <boost/static_assert.hpp>
 #include <functional>
 #include <memory>
 #include <string>
@@ -48,23 +48,23 @@ public:
         enum class Type
         {
             Int,
-            Float,
+            Double,
             String,
             Bool,
             Vec2i,
-            Vec2f,
+            Vec2d,
             Vec3i,
-            Vec3f,
-            Vec4f
+            Vec3d,
+            Vec4d
         };
 
         template <typename T>
         Property(const std::string& name_, const std::string& label_,
-                 const T& value)
+                 const T value)
             : name(name_)
             , label(label_)
             , type(_getType<T>())
-            , _data(value)
+            , _data(std::move(value))
             , _min(T())
             , _max(T())
         {
@@ -72,11 +72,11 @@ public:
 
         template <typename T>
         Property(const std::string& name_, const std::string& label_,
-                 const T& value, const std::pair<T, T>& limit)
+                 const T value, const std::pair<T, T>& limit)
             : name(name_)
             , label(label_)
             , type(_getType<T>())
-            , _data(value)
+            , _data(std::move(value))
             , _min(limit.first)
             , _max(limit.second)
         {
@@ -89,14 +89,14 @@ public:
          */
         template <typename T>
         Property(
-            const std::string& name_, const std::string& label_, const T& value,
-            const std::vector<std::string>& enums_,
+            const std::string& name_, const std::string& label_, const T value,
+            const std::map<std::string, int32_t>& enums_,
             typename std::enable_if<std::is_same<T, int32_t>::value>::type* = 0)
             : name(name_)
             , label(label_)
             , type(_getType<T>())
             , enums(enums_)
-            , _data(value)
+            , _data(std::move(value))
             , _min(0)
             , _max(enums_.size())
         {
@@ -149,10 +149,9 @@ public:
         const Type type;
 
         /**
-         * Name of enum values that are mapped to the integer value based on
-         * the index.
+         * Name of enum values that are mapped to the integer value
          */
-        const std::vector<std::string> enums;
+        const std::map<std::string, int32_t> enums;
 
     private:
         friend class PropertyMap;
@@ -259,7 +258,7 @@ private:
 template <>
 inline PropertyMap::Property::Type PropertyMap::Property::_getType<double>()
 {
-    return PropertyMap::Property::Type::Float;
+    return PropertyMap::Property::Type::Double;
 }
 template <>
 inline PropertyMap::Property::Type PropertyMap::Property::_getType<int32_t>()
@@ -287,7 +286,7 @@ template <>
 inline PropertyMap::Property::Type
     PropertyMap::Property::_getType<std::array<double, 2>>()
 {
-    return PropertyMap::Property::Type::Vec2f;
+    return PropertyMap::Property::Type::Vec2d;
 }
 template <>
 inline PropertyMap::Property::Type
@@ -299,7 +298,7 @@ template <>
 inline PropertyMap::Property::Type
     PropertyMap::Property::_getType<std::array<double, 3>>()
 {
-    return PropertyMap::Property::Type::Vec3f;
+    return PropertyMap::Property::Type::Vec3d;
 }
 template <>
 inline PropertyMap::Property::Type
@@ -311,12 +310,13 @@ template <>
 inline PropertyMap::Property::Type
     PropertyMap::Property::_getType<std::array<double, 4>>()
 {
-    return PropertyMap::Property::Type::Vec4f;
+    return PropertyMap::Property::Type::Vec4d;
 }
+
 template <typename T>
 inline PropertyMap::Property::Type PropertyMap::Property::_getType()
 {
-    BOOST_STATIC_ASSERT(!std::is_same<T, float>());
-    return PropertyMap::Property::Type::Float;
+    static_assert(sizeof(T) == -1, "Type not allowed in property map!");
+    return PropertyMap::Property::Type::Double;
 }
 }

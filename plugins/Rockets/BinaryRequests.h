@@ -26,6 +26,8 @@
 
 #include <rockets/jsonrpc/types.h>
 
+#include "jsonPropertyMap.h"
+
 namespace brayns
 {
 const std::string METHOD_REQUEST_MODEL_UPLOAD = "request-model-upload";
@@ -44,7 +46,9 @@ public:
     auto createTask(const BinaryParam& param, uintptr_t clientID,
                     Engine& engine)
     {
-        auto task = std::make_shared<AddModelFromBlobTask>(param, engine);
+        LoaderPropertyMap lpm;
+        lpm.properties = parsePossibleProperties(param._loaderPropertiesJSON);
+        auto task = std::make_shared<AddModelFromBlobTask>(param, engine, lpm);
 
         std::lock_guard<std::mutex> lock(_mutex);
         _requests.emplace(std::make_pair(clientID, param.chunksID), task);

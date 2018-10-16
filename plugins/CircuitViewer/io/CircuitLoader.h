@@ -39,42 +39,25 @@ namespace brayns
 class CircuitLoader : public Loader
 {
 public:
-    CircuitLoader(Scene& scene,
-                  const ApplicationParameters& applicationParameters,
-                  const GeometryParameters& geometryParameters);
+    CircuitLoader(Scene& scene);
     ~CircuitLoader();
+
+    LoaderSupport getLoaderSupport() const final;
+    std::pair<std::string, PropertyMap> getLoaderProperties() const final;
 
     bool isSupported(const std::string& filename,
                      const std::string& extension) const final;
 
     ModelDescriptorPtr importFromBlob(Blob&& blob,
                                       const LoaderProgress& callback,
+                                      const LoaderPropertyMap& properties,
                                       const size_t index,
                                       const size_t materialID) const final;
 
     ModelDescriptorPtr importFromFile(const std::string& filename,
                                       const LoaderProgress& callback,
+                                      const LoaderPropertyMap& properties,
                                       const size_t index,
                                       const size_t materialID) const final;
-
-    /**
-     * @brief Imports morphology from a circuit for the given target name
-     * @param circuitConfig URI of the Circuit Config file
-     * @param targets Targets to be loaded. If empty, the target specified in
-     * the circuit configuration file is used. If such an entry does not exist,
-     * all neurons are loaded.
-     * @param report Compartment report to be loaded
-     * @param scene Scene into which the circuit is imported
-     * @return True if the circuit is successfully loaded, false if the circuit
-     * contains no cells.
-     */
-    ModelDescriptorPtr importCircuit(const servus::URI& circuitConfig,
-                                     const LoaderProgress& callback,
-                                     const strings& targets,
-                                     const std::string& report);
-
-private:
-    class Impl;
-    std::unique_ptr<const Impl> _impl;
 };
 }

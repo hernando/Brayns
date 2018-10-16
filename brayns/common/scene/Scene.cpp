@@ -228,11 +228,17 @@ void Scene::removeClipPlane(const size_t id)
 
 ModelDescriptorPtr Scene::loadModel(Blob&& blob, const size_t materialID,
                                     const ModelParams& params,
-                                    LoaderProgress cb)
+                                    LoaderProgress cb,
+                                    const LoaderPropertyMap& properties)
 {
-    const auto& loader = _loaderRegistry.getLoaderFromFiletype(blob.type);
+    const auto& loader =
+        _loaderRegistry.getSuitableLoader("", blob.type,
+                                          params.getLoaderName());
+    // HACK: Add loader name in properties for archive loader
+    auto propCopy = properties;
+    propCopy.addProperty({"loaderName", "loaderName", params.getLoaderName()});
     auto modelDescriptor =
-        loader.importFromBlob(std::move(blob), cb, 0, materialID);
+        loader.importFromBlob(std::move(blob), cb, propCopy, 0, materialID);
     if (!modelDescriptor)
         throw std::runtime_error("No model returned by loader");
     *modelDescriptor = params;
@@ -245,10 +251,16 @@ ModelDescriptorPtr Scene::loadModel(Blob&& blob, const size_t materialID,
 ModelDescriptorPtr Scene::loadModel(const std::string& path,
                                     const size_t materialID,
                                     const ModelParams& params,
-                                    LoaderProgress cb)
+                                    LoaderProgress cb,
+                                    const LoaderPropertyMap& properties)
 {
-    const auto& loader = _loaderRegistry.getLoaderFromFilename(path);
-    auto modelDescriptor = loader.importFromFile(path, cb, 0, materialID);
+    const auto& loader =
+        _loaderRegistry.getSuitableLoader(path, "", params.getLoaderName());
+    // HACK: Add loader name in properties for archive loader
+    auto propCopy = properties;
+    propCopy.addProperty({"loaderName", "loaderName", params.getLoaderName()});
+    auto modelDescriptor =
+        loader.importFromFile(path, cb, properties, 0, materialID);
     if (!modelDescriptor)
         throw std::runtime_error("No model returned by loader");
     *modelDescriptor = params;

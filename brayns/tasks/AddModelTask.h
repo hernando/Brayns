@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <brayns/common/loader/Loader.h>
 #include <brayns/common/tasks/Task.h>
 
 namespace brayns
@@ -31,6 +32,7 @@ namespace brayns
 class AddModelTask : public Task<ModelDescriptorPtr>
 {
 public:
-    AddModelTask(const ModelParams& model, Engine& engine);
+    AddModelTask(const ModelParams& model, Engine& engine,
+                 const LoaderPropertyMap& properties);
 };
 }

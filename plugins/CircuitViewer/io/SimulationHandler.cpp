@@ -30,25 +30,22 @@
 namespace brayns
 {
 SimulationHandler::SimulationHandler(
-    const ApplicationParameters& applicationParameters,
-    const GeometryParameters& geometryParameters,
-    const brion::URI& reportSource, const brion::GIDSet& gids)
-    : AbstractSimulationHandler(geometryParameters)
-    , _applicationParameters(applicationParameters)
+    const brion::URI& reportSource, const brion::GIDSet& gids,
+    const bool synchronousMode, const double circuitStartSimulationTime,
+    const double circuitEndSimulationTime, const double circuitSimulationStep)
+    : AbstractSimulationHandler()
     , _compartmentReport(
           new brion::CompartmentReport(reportSource, brion::MODE_READ, gids))
+    , _synchronousMode(synchronousMode)
 {
     // Load simulation information from compartment reports
     const auto reportStartTime = _compartmentReport->getStartTime();
     const auto reportEndTime = _compartmentReport->getEndTime();
     const auto reportTimeStep = _compartmentReport->getTimestep();
 
-    _startTime = std::max(reportStartTime,
-                          _geometryParameters.getCircuitStartSimulationTime());
-    _endTime = std::min(reportEndTime,
-                        _geometryParameters.getCircuitEndSimulationTime());
-    _dt = std::max(reportTimeStep,
-                   _geometryParameters.getCircuitSimulationStep());
+    _startTime = std::max(reportStartTime, circuitStartSimulationTime);
+    _endTime = std::min(reportEndTime, circuitEndSimulationTime);
+    _dt = std::max(reportTimeStep, circuitSimulationStep);
     _unit = _compartmentReport->getTimeUnit();
     _frameSize = _compartmentReport->getFrameSize();
     _nbFrames = (_endTime - _startTime) / _dt;
@@ -126,7 +123,7 @@ bool SimulationHandler::_isFrameLoaded() const
     if (!_currentFrameFuture.valid())
         return false;
 
-    if (_applicationParameters.getSynchronousMode())
+    if (_synchronousMode)
     {
         _currentFrameFuture.wait();
         return true;
