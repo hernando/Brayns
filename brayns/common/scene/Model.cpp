@@ -496,7 +496,7 @@ void Model::_updateBounds()
     _bounds.merge(_volumesBounds);
 }
 
-void Model::createMissingMaterials(const bool castSimulationData)
+void Model::createMissingMaterials()
 {
     std::set<size_t> materialIds;
     for (auto& spheres : _spheres)
@@ -514,11 +514,7 @@ void Model::createMissingMaterials(const bool castSimulationData)
     {
         const auto it = _materials.find(materialId);
         if (it == _materials.end())
-        {
-            auto material =
-                createMaterial(materialId, std::to_string(materialId));
-            material->setCastSimulationData(castSimulationData);
-        }
+            createMaterial(materialId, std::to_string(materialId));
     }
 }
 

@@ -99,7 +99,7 @@ struct Brayns::Impl : public PluginAPI
         _parametersManager.print();
 
         createEngine();
-        _engine->getScene().commit();
+        _engine->getScene().commit(); // Needed to obtain a bounding box
         _registerKeyboardShortcuts();
         _setupCameraManipulator(CameraMode::inspect);
         const auto frameSize = Vector2d(_engine->getFrameBuffer().getSize());

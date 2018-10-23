@@ -99,14 +99,6 @@ public:
         _updateValue(_glossiness, value);
     }
     BRAYNS_API double getGlossiness() const { return _glossiness; }
-    BRAYNS_API void setCastSimulationData(bool value)
-    {
-        _updateValue(_castSimulationData, value);
-    }
-    BRAYNS_API bool getCastSimulationData() const
-    {
-        return _castSimulationData;
-    }
     BRAYNS_API const TextureDescriptors& getTextureDescriptors() const
     {
         return _textureDescriptors;
@@ -128,7 +120,6 @@ protected:
     double _refractionIndex{1.};
     double _emission{0.};
     double _glossiness{1.};
-    bool _castSimulationData{false};
     TexturesMap _textures;
     TextureDescriptors _textureDescriptors;
 

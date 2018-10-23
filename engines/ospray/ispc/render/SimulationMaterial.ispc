@@ -1,6 +1,6 @@
 /* Copyright (c) 2015-2018, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
- * Responsible Author: Cyrille Favreau <cyrille.favreau@epfl.ch>
+ * Responsible Author: Juan Hernando <juan.hernando@epfl.ch>
  *
  * This file is part of Brayns <https://github.com/BlueBrain/Brayns>
  *
@@ -18,35 +18,18 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef SIMULATIONRENDERER_H
-#define SIMULATIONRENDERER_H
+#include "SimulationMaterial.ih"
 
-#include "AbstractRenderer.h"
-
-// ospray
-#include <ospray/SDK/common/Material.h>
-#include <ospray/SDK/render/Renderer.h>
-
-// system
-#include <vector>
-
-namespace brayns
+export void* uniform SimulationMaterial_create(void* uniform cppE)
 {
-/**
- * The SimulationRenderer class implements a parent renderer for all Brayns
- * renderers that need to render simulation data
- */
-class SimulationRenderer : public AbstractRenderer
-{
-public:
-    void commit() override;
-
-protected:
-    ospray::Ref<ospray::Data> _simulationData;
-    ospray::uint64 _simulationDataSize;
-
-    float _alphaCorrection;
-};
+    uniform SimulationMaterial* uniform self =
+        uniform new uniform SimulationMaterial;
+    self->super.super.cppEquivalent = cppE;
+    return self;
 }
 
-#endif // SIMULATIONRENDERER_H
+export void SimulationMaterial_set(void* uniform self_)
+{
+    uniform DefaultMaterial* uniform self =
+        (uniform DefaultMaterial * uniform)self_;
+}

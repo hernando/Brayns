@@ -128,6 +128,7 @@ public:
         modelContainer.addConesToModel(model);
         modelContainer.addSDFGeometriesToModel(model);
 
+        // XXX
         model.createMissingMaterials();
         return somaPosition;
     }
@@ -1029,7 +1030,8 @@ ModelDescriptorPtr MorphologyLoader::importFromFile(
     auto model = _scene.createModel();
     Vector3f somaPosition =
         importMorphology(servus::URI(fileName), *model, index, {});
-    model->createMissingMaterials();
+    // XXX 
+    //model->createMissingMaterials();
     callback.updateProgress("Loading " + modelName + " ...", 1.f);
 
     Transformation transformation;

@@ -16,12 +16,13 @@ set(BRAYNSOSPRAYPLUGIN_ISPC_SOURCES
   ispc/camera/PerspectiveCamera.ispc
   ispc/geometry/Cones.ispc
   ispc/geometry/SDFGeometries.ispc
+  ispc/render/AdvancedSimulationRenderer.ispc
   ispc/render/BasicRenderer.ispc
-  ispc/render/ExtendedOBJMaterial.ispc
   ispc/render/BasicSimulationRenderer.ispc
+  ispc/render/DefaultMaterial.ispc
   ispc/render/PathTracingRenderer.ispc
   ispc/render/ProximityRenderer.ispc
-  ispc/render/AdvancedSimulationRenderer.ispc
+  ispc/render/SimulationMaterial.ispc
   ispc/render/utils/RandomGenerator.ispc
   ispc/render/utils/SimulationRenderer.ispc
   ispc/render/utils/SkyBox.ispc
@@ -41,12 +42,13 @@ set(BRAYNSOSPRAYENGINEPLUGIN_SOURCES
   ispc/camera/PerspectiveCamera.cpp
   ispc/geometry/Cones.cpp
   ispc/geometry/SDFGeometries.cpp
+  ispc/render/AdvancedSimulationRenderer.cpp
   ispc/render/BasicRenderer.cpp
-  ispc/render/ExtendedOBJMaterial.cpp
   ispc/render/BasicSimulationRenderer.cpp
+  ispc/render/DefaultMaterial.cpp
   ispc/render/PathTracingRenderer.cpp
   ispc/render/ProximityRenderer.cpp
-  ispc/render/AdvancedSimulationRenderer.cpp
+  ispc/render/SimulationMaterial.cpp
   ispc/render/utils/AbstractRenderer.cpp
   ispc/render/utils/SimulationRenderer.cpp
   ispc/render/utils/SimulationRenderer.ih
@@ -66,12 +68,13 @@ set(BRAYNSOSPRAYENGINEPLUGIN_HEADERS
   ispc/camera/PerspectiveCamera.h
   ispc/geometry/Cones.h
   ispc/geometry/SDFGeometries.h
+  ispc/render/AdvancedSimulationRenderer.h
   ispc/render/BasicRenderer.h
-  ispc/render/ExtendedOBJMaterial.h
   ispc/render/BasicSimulationRenderer.h
+  ispc/render/DefaultMaterial.h
   ispc/render/PathTracingRenderer.h
   ispc/render/ProximityRenderer.h
-  ispc/render/AdvancedSimulationRenderer.h
+  ispc/render/SimulationMaterial.h
   ispc/render/utils/AbstractRenderer.h
   ispc/render/utils/SimulationRenderer.h
 )

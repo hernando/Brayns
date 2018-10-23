@@ -1,9 +1,6 @@
 /* Copyright (c) 2015-2018, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
- * Responsible Authors: Samuel Lapere <samuel.lapere@epfl.ch>
- *                      Cyrille Favreau <cyrille.favreau@epfl.ch>
- *
- * Based on OSPRay implementation
+ * Responsible Author: Juan Hernando <juan.hernando@epfl.ch>
  *
  * This file is part of Brayns <https://github.com/BlueBrain/Brayns>
  *
@@ -21,30 +18,27 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "PathTracingRenderer.h"
-
-// ispc exports
-#include "PathTracingRenderer_ispc.h"
+#include "SimulationMaterial.h"
+#include "SimulationMaterial_ispc.h"
 
 namespace brayns
 {
-void PathTracingRenderer::commit()
+void SimulationMaterial::commit()
 {
-    AbstractRenderer::commit();
+    if (ispcEquivalent == nullptr)
+        ispcEquivalent = ispc::SimulationMaterial_create(this);
 
-    _shadows = getParam1f("shadows", 0.f);
-    _softShadows = getParam1f("softShadows", 0.f);
+    DefaultMaterial::commit();
 
-    ispc::PathTracingRenderer_set(getIE(), (_bgMaterial ? _bgMaterial->getIE()
-                                                        : nullptr),
-                                  _timestamp, spp, _lightPtr,
-                                  _lightArray.size(), _shadows, _softShadows);
+    // XXX Set the pointer for offset conversion
+    ispc::SimulationMaterial_set(getIE());
 }
 
-PathTracingRenderer::PathTracingRenderer()
-{
-    ispcEquivalent = ispc::PathTracingRenderer_create(this);
+OSP_REGISTER_MATERIAL(advanced_simulation, SimulationMaterial,
+                      default_material);
+OSP_REGISTER_MATERIAL(basic_simulation, SimulationMaterial,
+                      default_material);
+
+
 }
 
-OSP_REGISTER_RENDERER(PathTracingRenderer, pathtracing);
-} // ::brayns

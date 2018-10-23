@@ -297,6 +297,7 @@ void Scene::saveToCacheFile()
         file.write((char*)&nbMaterials, sizeof(size_t));
         BRAYNS_INFO << nbMaterials << " materials" << std::endl;
 
+        // XXX
         // Save materials
         for (auto& material : materials)
         {
@@ -324,8 +325,6 @@ void Scene::saveToCacheFile()
             file.write((char*)&value, sizeof(float));
             value = material.second->getGlossiness();
             file.write((char*)&value, sizeof(float));
-            const bool boolean = material.second->getCastSimulationData();
-            file.write((char*)&boolean, sizeof(bool));
         }
 
         // Spheres
@@ -514,9 +513,6 @@ void Scene::loadFromCacheFile()
             material->setEmission(value);
             file.read((char*)&value, sizeof(float));
             material->setGlossiness(value);
-            bool boolean;
-            file.read((char*)&boolean, sizeof(bool));
-            material->setCastSimulationData(boolean);
         }
 
         uint64_t bufferSize{0};

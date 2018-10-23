@@ -229,6 +229,9 @@ public:
                                  const size_t materialID,
                                  const ModelParams& params, LoaderProgress cb);
 
+    template<typename T>
+    inline void visitModels(const T& functor);
+
     /** @return the registry for all supported loaders of this scene. */
     LoaderRegistry& getLoaderRegistry() { return _loaderRegistry; }
     /** @internal */

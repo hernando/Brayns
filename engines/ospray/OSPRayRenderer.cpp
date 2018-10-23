@@ -21,6 +21,7 @@
 #include <brayns/common/log.h>
 #include <brayns/common/scene/ClipPlane.h>
 #include <brayns/common/scene/Model.h>
+#include <brayns/common/scene/Scene.tpp>
 
 #include "OSPRayCamera.h"
 #include "OSPRayFrameBuffer.h"
@@ -69,13 +70,15 @@ void OSPRayRenderer::commit()
 
     const bool rendererChanged = _currentOSPRenderer != getCurrentType();
     if (rendererChanged)
-        createOSPRenderer();
+        _createOSPRenderer();
 
     setOSPRayProperties(*this, _renderer);
 
     auto scene = std::static_pointer_cast<OSPRayScene>(_scene);
     if (isModified() || rendererChanged || _scene->isModified())
     {
+        _commitRendererMaterials();
+
         ospSetData(_renderer, "lights", scene->lightData());
 
         if (auto simulationModel = scene->getSimulatedModel())
@@ -108,7 +111,7 @@ void OSPRayRenderer::commit()
     if (bgMaterial)
     {
         bgMaterial->setDiffuseColor(rp.getBackgroundColor());
-        bgMaterial->commit();
+        bgMaterial->commit(_currentOSPRenderer);
         ospSetObject(_renderer, "bgMaterial", bgMaterial->getOSPMaterial());
     }
 
@@ -122,9 +125,8 @@ void OSPRayRenderer::setCamera(CameraPtr camera)
 {
     _camera = static_cast<OSPRayCamera*>(camera.get());
     assert(_camera);
-    if (_renderer == nullptr)
-        createOSPRenderer();
-    ospSetObject(_renderer, "camera", _camera->impl());
+    if (_renderer)
+        ospSetObject(_renderer, "camera", _camera->impl());
     markModified();
 }
 
@@ -155,16 +157,24 @@ Renderer::PickResult OSPRayRenderer::pick(const Vector2f& pickPos)
     return result;
 }
 
-void OSPRayRenderer::createOSPRenderer()
+void OSPRayRenderer::_createOSPRenderer()
 {
     auto newRenderer = ospNewRenderer(getCurrentType().c_str());
     if (!newRenderer)
         throw std::runtime_error(getCurrentType() +
                                  " is not a registered renderer");
-    if (_renderer)
-        ospRelease(_renderer);
+    ospRelease(_renderer);
     _renderer = newRenderer;
+    if (_camera)
+        ospSetObject(_renderer, "camera", _camera->impl());
     _currentOSPRenderer = getCurrentType();
     markModified();
+}
+
+void OSPRayRenderer::_commitRendererMaterials()
+{
+    _scene->visitModels([&renderer = _currentOSPRenderer](Model& model) {
+            static_cast<OSPRayModel&>(model).commitMaterials(renderer);
+    });
 }
 }

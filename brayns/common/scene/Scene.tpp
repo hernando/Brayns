@@ -1,9 +1,6 @@
 /* Copyright (c) 2015-2018, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
- * Responsible Authors: Samuel Lapere <samuel.lapere@epfl.ch>
- *                      Cyrille Favreau <cyrille.favreau@epfl.ch>
- *
- * Based on OSPRay implementation
+ * Responsible Author: Juan Hernando <juan.hernando@epfl.ch>
  *
  * This file is part of Brayns <https://github.com/BlueBrain/Brayns>
  *
@@ -21,30 +18,18 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "PathTracingRenderer.h"
+#pragma once
 
-// ispc exports
-#include "PathTracingRenderer_ispc.h"
+#include "Scene.h"
+#include "Model.h"
 
 namespace brayns
 {
-void PathTracingRenderer::commit()
+template <typename T>
+void Scene::visitModels(const T& functor)
 {
-    AbstractRenderer::commit();
-
-    _shadows = getParam1f("shadows", 0.f);
-    _softShadows = getParam1f("softShadows", 0.f);
-
-    ispc::PathTracingRenderer_set(getIE(), (_bgMaterial ? _bgMaterial->getIE()
-                                                        : nullptr),
-                                  _timestamp, spp, _lightPtr,
-                                  _lightArray.size(), _shadows, _softShadows);
+    std::unique_lock<std::shared_timed_mutex> lock(_modelMutex);
+    for (auto modelDescriptor : _modelDescriptors)
+        functor(modelDescriptor->getModel());
 }
-
-PathTracingRenderer::PathTracingRenderer()
-{
-    ispcEquivalent = ispc::PathTracingRenderer_create(this);
 }
-
-OSP_REGISTER_RENDERER(PathTracingRenderer, pathtracing);
-} // ::brayns

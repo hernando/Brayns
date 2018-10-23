@@ -68,6 +68,7 @@ set(BRAYNSCOMMON_PUBLIC_HEADERS
   scene/ClipPlane.h
   scene/Model.h
   scene/Scene.h
+  scene/Scene.tpp
   simulation/AbstractSimulationHandler.h
   tasks/Task.h
   tasks/TaskFunctor.h

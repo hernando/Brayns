@@ -44,20 +44,15 @@ static TextureTypeMaterialAttribute textureTypeMaterialAttribute[8] = {
     {TT_REFLECTION, "map_reflection"},
     {TT_REFRACTION, "map_refraction"}};
 
-OSPRayMaterial::OSPRayMaterial()
-    : _ospMaterial(ospNewMaterial2("", "ExtendedOBJMaterial"))
-{
-}
-
 OSPRayMaterial::~OSPRayMaterial()
 {
-    if (_ospMaterial)
-        ospRelease(_ospMaterial);
+    ospRelease(_ospMaterial);
 }
 
 void OSPRayMaterial::commit()
 {
-    if (!isModified())
+    // Do nothing until this material is instanced for a specific renderer
+    if (!_ospMaterial || !isModified())
         return;
 
     ospSet3f(_ospMaterial, "kd", _diffuseColor.x(), _diffuseColor.y(),
@@ -70,7 +65,6 @@ void OSPRayMaterial::commit()
     ospSet1f(_ospMaterial, "reflection", _reflectionIndex);
     ospSet1f(_ospMaterial, "a", _emission);
     ospSet1f(_ospMaterial, "glossiness", _glossiness);
-    ospSet1i(_ospMaterial, "cast_simulation_data", _castSimulationData);
 
     // Textures
     for (const auto& textureType : textureTypeMaterialAttribute)
@@ -92,6 +86,13 @@ void OSPRayMaterial::commit()
 
     ospCommit(_ospMaterial);
     resetModified();
+}
+
+void OSPRayMaterial::commit(const std::string& renderer)
+{
+    ospRelease(_ospMaterial);
+    _ospMaterial = ospNewMaterial2(renderer.c_str(), "default_material");
+    commit();
 }
 
 OSPTexture OSPRayMaterial::_createOSPTexture2D(Texture2DPtr texture)
