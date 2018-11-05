@@ -57,9 +57,7 @@
 #endif
 
 #if BRAYNS_USE_BRION
-#include <brayns/io/CircuitLoader.h>
 #include <brayns/io/MolecularSystemReader.h>
-#include <brayns/io/MorphologyLoader.h>
 #endif
 
 #ifdef BRAYNS_USE_OSPRAY
@@ -292,11 +290,6 @@ private:
 #if (BRAYNS_USE_BRION)
         registry.registerLoader(
             std::make_unique<MolecularSystemReader>(scene, geometryParameters));
-        registry.registerLoader(std::make_unique<CircuitLoader>(
-            scene, _parametersManager.getApplicationParameters(),
-            geometryParameters));
-        registry.registerLoader(
-            std::make_unique<MorphologyLoader>(scene, geometryParameters));
 #endif
     }
 
