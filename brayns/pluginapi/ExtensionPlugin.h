@@ -57,6 +57,12 @@ public:
     virtual void init(PluginAPI* /* api */) {}
 
     /**
+     * Called from Brayns::Brayns before command line parsing to allow plugins
+     * to provide their own command line parameters.
+     */
+    virtual void getOptions(ParametersManager& /* parametersManager */) {}
+
+    /**
      * Called from Brayns::preRender() to prepare the engine based on the
      * plugins' need for an upcoming render().
      */

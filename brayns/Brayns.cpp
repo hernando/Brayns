@@ -78,6 +78,8 @@ struct Brayns::Impl : public PluginAPI
         : _pluginManager{argc, argv}
         , _engineFactory{argc, argv, _parametersManager}
     {
+        _pluginManager.getPluginOptions(_parametersManager);
+
         BRAYNS_INFO << "Parsing command line options" << std::endl;
         _parametersManager.parse(argc, argv);
         _parametersManager.print();

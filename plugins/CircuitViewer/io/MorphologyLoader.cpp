@@ -19,6 +19,7 @@
  */
 
 #include "MorphologyLoader.h"
+#include "../MorphologyParameters.h"
 #include "common.h"
 
 #include <brayns/common/material/Material.h>
@@ -57,8 +58,10 @@ namespace brayns
 class MorphologyLoader::Impl
 {
 public:
-    Impl(const GeometryParameters& geometryParameters)
-        : _geometryParameters(geometryParameters)
+    Impl(const MorphologyParameters& parameters,
+         const GeometryParameters& geometryParameters)
+        : _parameters(parameters)
+        , _geometryParameters(geometryParameters)
     {
     }
 
@@ -79,20 +82,18 @@ public:
     {
         Vector3f somaPosition;
         auto materialFunc = [
-            defaultMaterialId,
-            colorScheme = _geometryParameters.getColorScheme(), index
+            defaultMaterialId, colorScheme = _parameters.getColorScheme(), index
         ](auto sectionType)
         {
             if (defaultMaterialId != NO_MATERIAL)
                 return defaultMaterialId;
-
             size_t materialId = 0;
             switch (colorScheme)
             {
-            case ColorScheme::neuron_by_id:
+            case MorphologyParameters::ColorScheme::by_id:
                 materialId = index;
                 break;
-            case ColorScheme::neuron_by_segment_type:
+            case MorphologyParameters::ColorScheme::by_segment_type:
                 switch (sectionType)
                 {
                 case brain::neuron::SectionType::soma:
@@ -138,23 +139,16 @@ public:
                               CompartmentReportPtr compartmentReport,
                               ParallelModelContainer& model) const
     {
-        if (_geometryParameters.getMorphologySectionTypes() ==
-            std::vector<MorphologySectionType>{MorphologySectionType::soma})
-        {
+        if (_parameters.useSomaOnly())
             return _importMorphologyAsPoint(index, materialFunc, transformation,
                                             compartmentReport, model);
-        }
-        else if (_geometryParameters.useRealisticSomas())
-        {
+        else if (_parameters.useRealisticSomas())
             return _createRealisticSoma(source, materialFunc, transformation,
                                         model);
-        }
         else
-        {
             return _importMorphologyFromURI(source, index, materialFunc,
                                             transformation, compartmentReport,
                                             model);
-        }
     }
 
 private:
@@ -166,8 +160,8 @@ private:
      */
     float _getCorrectedRadius(const float radius) const
     {
-        return (_geometryParameters.getRadiusCorrection() != 0.f
-                    ? _geometryParameters.getRadiusCorrection()
+        return (_parameters.getRadiusCorrection() != 0.f
+                    ? _parameters.getRadiusCorrection()
                     : radius * _geometryParameters.getRadiusMultiplier());
     }
 
@@ -178,20 +172,17 @@ private:
      * @return brain::neuron section types
      */
     brain::neuron::SectionTypes _getSectionTypes(
-        const size_t morphologySectionTypes) const
+        const size_t sectionTypeMask) const
     {
+        using SectionType = MorphologyParameters::SectionType;
         brain::neuron::SectionTypes sectionTypes;
-        if (morphologySectionTypes &
-            static_cast<size_t>(MorphologySectionType::soma))
+        if (sectionTypeMask & static_cast<size_t>(SectionType::soma))
             sectionTypes.push_back(brain::neuron::SectionType::soma);
-        if (morphologySectionTypes &
-            static_cast<size_t>(MorphologySectionType::axon))
+        if (sectionTypeMask & static_cast<size_t>(SectionType::axon))
             sectionTypes.push_back(brain::neuron::SectionType::axon);
-        if (morphologySectionTypes &
-            static_cast<size_t>(MorphologySectionType::dendrite))
+        if (sectionTypeMask & static_cast<size_t>(SectionType::dendrite))
             sectionTypes.push_back(brain::neuron::SectionType::dendrite);
-        if (morphologySectionTypes &
-            static_cast<size_t>(MorphologySectionType::apical_dendrite))
+        if (sectionTypeMask & static_cast<size_t>(SectionType::apical_dendrite))
             sectionTypes.push_back(brain::neuron::SectionType::apicalDendrite);
         return sectionTypes;
     }
@@ -241,15 +232,15 @@ private:
                                   ParallelModelContainer& model) const
     {
         Vector3f somaPosition;
-        const size_t morphologySectionTypes =
-            enumsToBitmask(_geometryParameters.getMorphologySectionTypes());
+        const size_t sectionTypeMask =
+            enumsToBitmask(_parameters.getSectionTypes());
 
         brain::neuron::Morphology morphology(uri, transformation);
-        const auto sectionTypes = _getSectionTypes(morphologySectionTypes);
+        const auto sectionTypes = _getSectionTypes(sectionTypeMask);
         const auto& sections = morphology.getSections(sectionTypes);
 
         Vector4fs metaballs;
-        if (morphologySectionTypes & size_t(MorphologySectionType::soma))
+        if (sectionTypeMask & size_t(MorphologyParameters::SectionType::soma))
         {
             // Soma
             const auto& soma = morphology.getSoma();
@@ -275,7 +266,7 @@ private:
                 continue;
 
             const auto samplesFromSoma =
-                _geometryParameters.getMetaballsSamplesFromSoma();
+                _parameters.getMetaballsSamplesFromSoma();
             const auto samplesToProcess =
                 std::min(samplesFromSoma, samples.size());
             for (size_t i = 0; i < samplesToProcess; ++i)
@@ -290,8 +281,8 @@ private:
         }
 
         // Generate mesh from metaballs
-        const auto gridSize = _geometryParameters.getMetaballsGridSize();
-        const auto threshold = _geometryParameters.getMetaballsThreshold();
+        const auto gridSize = _parameters.getMetaballsGridSize();
+        const auto threshold = _parameters.getMetaballsThreshold();
         MetaballsGenerator metaballsGenerator;
         const auto materialId = materialFunc(brain::neuron::SectionType::soma);
         metaballsGenerator.generateMesh(metaballs, gridSize, threshold,
@@ -656,7 +647,7 @@ private:
         {
             model.addSphere(materialId, {somaPosition, somaRadius, offset});
 
-            if (_geometryParameters.getCircuitUseSimulationModel())
+            if (_parameters.useSimulationModel())
             {
                 // When using a simulation model, parametric geometries
                 // must occupy as much space as possible in the mesh.
@@ -762,22 +753,20 @@ private:
         Vector3f somaPosition;
         Vector3f translation;
 
-        const size_t morphologySectionTypes =
-            enumsToBitmask(_geometryParameters.getMorphologySectionTypes());
+        const size_t sectionTypeMask =
+            enumsToBitmask(_parameters.getSectionTypes());
 
         const bool dampenThickness =
-            _geometryParameters.getMorphologyDampenBranchThicknessChangerate();
+            _parameters.getDampenBranchThicknessChangerate();
 
-        const bool useSDFGeometries =
-            _geometryParameters.getMorphologyUseSDFGeometries();
+        const bool useSDF = _parameters.useSDF();
 
         SDFMorphologyData sdfMorphologyData;
 
         brain::neuron::Morphology morphology(uri, transformation);
         brain::neuron::SectionTypes sectionTypes;
 
-        const MorphologyLayout& layout =
-            _geometryParameters.getMorphologyLayout();
+        const MorphologyParameters::Layout& layout = _parameters.getLayout();
 
         if (layout.nbColumns != 0)
         {
@@ -795,30 +784,29 @@ private:
             translation = positionInGrid - morphologyAABB.getCenter();
         }
 
-        sectionTypes = _getSectionTypes(morphologySectionTypes);
+        sectionTypes = _getSectionTypes(sectionTypeMask);
 
         uint64_t offset = 0;
 
         if (compartmentReport)
             offset = compartmentReport->getOffsets()[index][0];
 
+        using SectionType = MorphologyParameters::SectionType;
+
         // Soma
         somaPosition = morphology.getSoma().getCentroid() + translation;
-        if (!_geometryParameters.useRealisticSomas() &&
-            morphologySectionTypes &
-                static_cast<size_t>(MorphologySectionType::soma))
+        if (!_parameters.useRealisticSomas() &&
+            sectionTypeMask & static_cast<size_t>(SectionType::soma))
         {
             _addSomaGeometry(morphology.getSoma(), translation, offset,
-                             useSDFGeometries, materialFunc, model,
-                             sdfMorphologyData);
+                             useSDF, materialFunc, model, sdfMorphologyData);
         }
 
         // Only the first one or two axon sections are reported, so find the
         // last one and use its offset for all the other axon sections
         uint16_t lastAxon = 0;
         if (compartmentReport &&
-            (morphologySectionTypes &
-             static_cast<size_t>(MorphologySectionType::axon)))
+            (sectionTypeMask & static_cast<size_t>(SectionType::axon)))
         {
             const auto& counts =
                 compartmentReport->getCompartmentCounts()[index];
@@ -966,13 +954,13 @@ private:
 
                 if (radius > 0.f)
                 {
-                    _addStepSphereGeometry(useSDFGeometries, done, position,
+                    _addStepSphereGeometry(useSDF, done, position,
                                            radius, materialId, offset, model,
                                            sectionI, sdfMorphologyData);
 
                     if (position != target && previousRadius > 0.f)
                     {
-                        _addStepConeGeometry(useSDFGeometries, position, radius,
+                        _addStepConeGeometry(useSDF, position, radius,
                                              target, previousRadius, materialId,
                                              offset, model, sectionI,
                                              sdfMorphologyData);
@@ -984,7 +972,7 @@ private:
             }
         }
 
-        if (useSDFGeometries)
+        if (useSDF)
         {
             _connectSDFBifurcations(sdfMorphologyData, morphologyTree);
             _finalizeSDFGeometries(model, sdfMorphologyData);
@@ -993,13 +981,15 @@ private:
     }
 
 private:
+    const MorphologyParameters& _parameters;
     const GeometryParameters& _geometryParameters;
 };
 
 MorphologyLoader::MorphologyLoader(Scene& scene,
+                                   const MorphologyParameters& parameters,
                                    const GeometryParameters& geometryParameters)
     : Loader(scene)
-    , _impl(new MorphologyLoader::Impl(geometryParameters))
+    , _impl(new MorphologyLoader::Impl(parameters, geometryParameters))
 {
 }
 

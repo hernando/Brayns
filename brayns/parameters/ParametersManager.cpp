@@ -115,14 +115,12 @@ ParametersManager::ParametersManager()
     registerParameters(&_sceneParameters);
     registerParameters(&_streamParameters);
     registerParameters(&_volumeParameters);
-
-    for (auto parameters : _parameterSets)
-        _parameters.add(parameters->parameters());
 }
 
 void ParametersManager::registerParameters(AbstractParameters* parameters)
 {
     _parameterSets.push_back(parameters);
+    _parameters.add(parameters->parameters());
 }
 
 void ParametersManager::parse(int argc, const char** argv)
@@ -196,46 +194,6 @@ bool ParametersManager::isAnyModified() const
             return true;
     }
     return false;
-}
-
-AnimationParameters& ParametersManager::getAnimationParameters()
-{
-    return _animationParameters;
-}
-
-ApplicationParameters& ParametersManager::getApplicationParameters()
-{
-    return _applicationParameters;
-}
-
-const ApplicationParameters& ParametersManager::getApplicationParameters() const
-{
-    return _applicationParameters;
-}
-
-RenderingParameters& ParametersManager::getRenderingParameters()
-{
-    return _renderingParameters;
-}
-
-GeometryParameters& ParametersManager::getGeometryParameters()
-{
-    return _geometryParameters;
-}
-
-SceneParameters& ParametersManager::getSceneParameters()
-{
-    return _sceneParameters;
-}
-
-StreamParameters& ParametersManager::getStreamParameters()
-{
-    return _streamParameters;
-}
-
-VolumeParameters& ParametersManager::getVolumeParameters()
-{
-    return _volumeParameters;
 }
 
 void ParametersManager::set(const std::string& key, const std::string& value)

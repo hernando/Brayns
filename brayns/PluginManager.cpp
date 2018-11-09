@@ -73,6 +73,12 @@ PluginManager::PluginManager(int argc, const char** argv)
 #endif
 }
 
+void PluginManager::getPluginOptions(ParametersManager& parametersManager)
+{
+    for (const auto& extension : _extensions)
+        extension->getOptions(parametersManager);
+}
+
 void PluginManager::initPlugins(PluginAPI* api)
 {
     // Rockets and Deflect plugins cannot be initialized until we have

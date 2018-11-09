@@ -1,6 +1,6 @@
-/* Copyright (c) 2018, EPFL/Blue Brain Project
+/* Copyright (c) 2016, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
- * Responsible Author: Juan Hernando <juan.hernando@epfl.ch>
+ * Responsible Author: Juan Hernando juan.hernando@epfl.ch
  *
  * This file is part of Brayns <https://github.com/BlueBrain/Brayns>
  *
@@ -18,23 +18,18 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#include "../MorphologyParameters.h"
 
-#include "MorphologyParameters.h"
+#define BOOST_TEST_MODULE brayns
+#include <boost/test/unit_test.hpp>
 
-#include <brayns/common/types.h>
-#include <brayns/pluginapi/ExtensionPlugin.h>
-
-namespace brayns
+BOOST_AUTO_TEST_CASE(morphologyDefaults)
 {
-class CircuitViewer : public ExtensionPlugin
-{
-public:
-    void init(PluginAPI* api) final;
-
-    void getOptions(ParametersManager& parametersManager) final;
-
-private:
-    MorphologyParameters _morphologyParameters;
-};
+    brayns::MorphologyParameters parameters;
+    BOOST_CHECK_EQUAL(parameters.getRadiusCorrection(), 0.f);
+    BOOST_CHECK_EQUAL(
+        brayns::enumsToBitmask(parameters.getSectionTypes()),
+        size_t(brayns::MorphologyParameters::SectionType::all));
+    BOOST_CHECK_EQUAL(parameters.getLayout().nbColumns, 0);
+    BOOST_CHECK_EQUAL(parameters.useSDF(), false);
 }

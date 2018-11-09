@@ -17,6 +17,7 @@ common_find_package_post()
 
 set(BRAYNSCIRCUITVIEWER_HEADERS
   CircuitViewer.h
+  MorphologyParameters.h
   io/common.h
   io/CircuitLoader.h
   io/MorphologyLoader.h
@@ -24,6 +25,7 @@ set(BRAYNSCIRCUITVIEWER_HEADERS
 
 set(BRAYNSCIRCUITVIEWER_SOURCES
   CircuitViewer.cpp
+  MorphologyParameters.cpp
   io/CircuitLoader.cpp
   io/MorphologyLoader.cpp
   io/SimulationHandler.cpp)

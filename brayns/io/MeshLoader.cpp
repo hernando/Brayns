@@ -225,10 +225,14 @@ void MeshLoader::_postLoad(const aiScene* aiScene, Model& model,
                            const size_t defaultMaterialId,
                            const std::string& folder) const
 {
-    const size_t materialId =
-        _geometryParameters.getColorScheme() == ColorScheme::neuron_by_id
-            ? index
-            : defaultMaterialId;
+
+    const size_t materialId = defaultMaterialId;
+    // XXX
+        //
+        //_geometryParameters.getColorScheme() == ColorScheme::neuron_by_id
+        //    ? index
+        //    : defaultMaterialId;
+    (void)index;
 
     // Always create placeholder material since it is not guaranteed to exist
     model.createMaterial(materialId, "default");

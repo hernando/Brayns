@@ -85,15 +85,9 @@ BOOST_AUTO_TEST_CASE(defaults)
     BOOST_CHECK_EQUAL(geomParams.getCircuitTargets(), "");
     BOOST_CHECK_EQUAL(geomParams.getCircuitReport(), "");
     BOOST_CHECK_EQUAL(geomParams.getRadiusMultiplier(), 1.f);
-    BOOST_CHECK_EQUAL(geomParams.getRadiusCorrection(), 0.f);
     BOOST_CHECK(geomParams.getColorScheme() == brayns::ColorScheme::none);
     BOOST_CHECK(geomParams.getGeometryQuality() ==
                 brayns::GeometryQuality::high);
-    BOOST_CHECK_EQUAL(
-        brayns::enumsToBitmask(geomParams.getMorphologySectionTypes()),
-        brayns::enumsToBitmask(std::vector<brayns::MorphologySectionType>{
-            brayns::MorphologySectionType::all}));
-    BOOST_CHECK_EQUAL(geomParams.getMorphologyLayout().nbColumns, 0);
     BOOST_CHECK_EQUAL(geomParams.getCircuitStartSimulationTime(), 0.f);
     BOOST_CHECK_EQUAL(geomParams.getCircuitEndSimulationTime(),
                       std::numeric_limits<float>::max());

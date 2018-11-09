@@ -20,9 +20,11 @@
 
 #pragma once
 
+#include "../MorphologyParameters.h"
+
 #include <brayns/common/loader/Loader.h>
 #include <brayns/common/types.h>
-#include <brayns/parameters/GeometryParameters.h>
+#include <brayns/parameters/ParametersManager.h>
 
 #include <vector>
 
@@ -40,8 +42,8 @@ class CircuitLoader : public Loader
 {
 public:
     CircuitLoader(Scene& scene,
-                  const ApplicationParameters& applicationParameters,
-                  const GeometryParameters& geometryParameters);
+                  const ParametersManager& parameters,
+                  const MorphologyParameters& morphologyParameters);
     ~CircuitLoader();
 
     bool isSupported(const std::string& filename,

@@ -23,9 +23,10 @@
 #include "SimulationHandler.h"
 #include "common.h"
 
+#include "../MorphologyParameters.h"
+
 #include <brayns/common/scene/Model.h>
 #include <brayns/common/scene/Scene.h>
-
 
 #include <brain/brain.h>
 #include <brion/brion.h>
@@ -39,11 +40,13 @@ namespace brayns
 class CircuitLoader::Impl
 {
 public:
-    Impl(const ApplicationParameters& applicationParameters,
-         const GeometryParameters& geometryParameters, CircuitLoader& parent)
+    Impl(const ParametersManager& parameters,
+         const MorphologyParameters& morphologyParameters,
+         CircuitLoader& parent)
         : _parent(parent)
-        , _applicationParameters(applicationParameters)
-        , _geometryParameters(geometryParameters)
+        , _applicationParameters(parameters.getApplicationParameters())
+        , _geometryParameters(parameters.getGeometryParameters())
+        , _morphologyParameters(morphologyParameters)
     {
     }
 
@@ -167,12 +170,13 @@ public:
 
             // Import morphologies
             const auto useSimulationModel =
-                _geometryParameters.getCircuitUseSimulationModel();
+                _morphologyParameters.useSimulationModel();
             model->useSimulationModel(useSimulationModel);
             if (_geometryParameters.getCircuitMeshFolder().empty() ||
                 useSimulationModel)
             {
                 MorphologyLoader morphLoader(_parent._scene,
+                                             _morphologyParameters,
                                              _geometryParameters);
                 returnValue =
                     returnValue &&
@@ -240,16 +244,16 @@ private:
         if (material != NO_MATERIAL)
             return material;
 
-        if (!isMesh && _geometryParameters.getCircuitUseSimulationModel())
+        if (!isMesh && _morphologyParameters.useSimulationModel())
             return 0;
 
         size_t materialId = 0;
-        switch (_geometryParameters.getColorScheme())
+        switch (_morphologyParameters.getColorScheme())
         {
-        case ColorScheme::neuron_by_id:
+        case MorphologyParameters::ColorScheme::by_id:
             materialId = index;
             break;
-        case ColorScheme::neuron_by_segment_type:
+        case MorphologyParameters::ColorScheme::by_segment_type:
             switch (sectionType)
             {
             case brain::neuron::SectionType::soma:
@@ -269,7 +273,7 @@ private:
                 break;
             }
             break;
-        case ColorScheme::neuron_by_target:
+        case MorphologyParameters::ColorScheme::by_target:
             for (size_t i = 0; i < targetGIDOffsets.size() - 1; ++i)
                 if (index >= targetGIDOffsets[i] &&
                     index < targetGIDOffsets[i + 1])
@@ -278,19 +282,19 @@ private:
                     break;
                 }
             break;
-        case ColorScheme::neuron_by_etype:
+        case MorphologyParameters::ColorScheme::by_etype:
             if (index < electrophysiologyTypes.size())
                 materialId = electrophysiologyTypes[index];
             else
                 BRAYNS_DEBUG << "Failed to get neuron E-type" << std::endl;
             break;
-        case ColorScheme::neuron_by_mtype:
+        case MorphologyParameters::ColorScheme::by_mtype:
             if (index < morphologyTypes.size())
                 materialId = morphologyTypes[index];
             else
                 BRAYNS_DEBUG << "Failed to get neuron M-type" << std::endl;
             break;
-        case ColorScheme::neuron_by_layer:
+        case MorphologyParameters::ColorScheme::by_layer:
             if (index < layerIds.size())
                 materialId = layerIds[index];
             else
@@ -320,8 +324,8 @@ private:
         }
         catch (...)
         {
-            if (_geometryParameters.getColorScheme() ==
-                ColorScheme::neuron_by_layer)
+            if (_morphologyParameters.getColorScheme() ==
+                MorphologyParameters::ColorScheme::by_layer)
                 BRAYNS_ERROR
                     << "Only MVD2 format is currently supported by Brion "
                        "circuits. Color scheme by layer not available for "
@@ -476,14 +480,14 @@ private:
     CircuitLoader& _parent;
     const ApplicationParameters& _applicationParameters;
     const GeometryParameters& _geometryParameters;
+    const MorphologyParameters& _morphologyParameters;
 };
 
 CircuitLoader::CircuitLoader(Scene& scene,
-                             const ApplicationParameters& applicationParameters,
-                             const GeometryParameters& geometryParameters)
+                             const ParametersManager& parameters,
+                             const MorphologyParameters& morphologyParameters)
     : Loader(scene)
-    , _impl(new CircuitLoader::Impl(applicationParameters, geometryParameters,
-                                    *this))
+    , _impl(new CircuitLoader::Impl(parameters, morphologyParameters, *this))
 {
 }
 

@@ -28,8 +28,6 @@
 namespace
 {
 const std::string PARAM_CIRCUIT_DENSITY = "circuit-density";
-const std::string PARAM_CIRCUIT_USES_SIMULATION_MODEL =
-    "circuit-uses-simulation-model";
 const std::string PARAM_CIRCUIT_BOUNDING_BOX = "circuit-bounding-box";
 const std::string PARAM_CIRCUIT_MESH_FOLDER = "circuit-mesh-folder";
 const std::string PARAM_CIRCUIT_MESH_FILENAME_PATTERN =
@@ -49,26 +47,13 @@ const std::string PARAM_CIRCUIT_RANDOM_SEED = "circuit-random-seed";
 const std::string PARAM_LOAD_CACHE_FILE = "load-cache-file";
 const std::string PARAM_SAVE_CACHE_FILE = "save-cache-file";
 const std::string PARAM_RADIUS_MULTIPLIER = "radius-multiplier";
-const std::string PARAM_RADIUS_CORRECTION = "radius-correction";
 const std::string PARAM_COLOR_SCHEME = "color-scheme";
 const std::string PARAM_GEOMETRY_QUALITY = "geometry-quality";
-const std::string PARAM_MORPHOLOGY_SECTION_TYPES = "morphology-section-types";
-const std::string PARAM_MORPHOLOGY_LAYOUT = "morphology-layout";
-const std::string PARAM_METABALLS_GRIDSIZE = "metaballs-grid-size";
-const std::string PARAM_METABALLS_THRESHOLD = "metaballs-threshold";
-const std::string PARAM_METABALLS_SAMPLES_FROM_SOMA =
-    "metaballs-samples-from-soma";
-const std::string PARAM_MORPHOLOGY_DAMPEN_BRANCH_THICKNESS_CHANGERATE =
-    "morphology-dampen-branch-thickness-changerate";
-const std::string PARAM_MORPHOLOGY_USE_SDF_GEOMETRIES =
-    "morphology-use-sdf-geometries";
 const std::string PARAM_MEMORY_MODE = "memory-mode";
 const std::string PARAM_DEFAULT_BVH_FLAG = "default-bvh-flag";
 
 const std::array<std::string, 12> COLOR_SCHEMES = {
-    {"none", "neuron-by-id", "neuron-by-type", "neuron-by-segment-type",
-     "neuron-by-layer", "neuron-by-mtype", "neuron-by-etype",
-     "neuron-by-target", "protein-by-id", "protein-atoms", "protein-chains",
+    {"none", "protein-by-id", "protein-atoms", "protein-chains",
      "protein-residues"}};
 
 const std::string GEOMETRY_QUALITIES[3] = {"low", "medium", "high"};
@@ -84,15 +69,8 @@ namespace brayns
 GeometryParameters::GeometryParameters()
     : AbstractParameters("Geometry")
     , _radiusMultiplier(1.f)
-    , _radiusCorrection(0.f)
     , _colorScheme(ColorScheme::none)
     , _geometryQuality(GeometryQuality::high)
-    , _morphologySectionTypes{MorphologySectionType::all}
-    , _metaballsGridSize(0)
-    , _metaballsThreshold(1.f)
-    , _metaballsSamplesFromSoma(3)
-    , _morphologyDampenBranchThicknessChangerate(false)
-    , _morphologyUseSDFGeometries(false)
     , _memoryMode(MemoryMode::shared)
 {
     _parameters.add_options() //
@@ -105,16 +83,9 @@ GeometryParameters::GeometryParameters()
         (PARAM_RADIUS_MULTIPLIER.c_str(), po::value<float>(),
          "Radius multiplier for spheres, cones and cylinders [float]")
         //
-        (PARAM_RADIUS_CORRECTION.c_str(), po::value<float>(),
-         "Forces radius of spheres and cylinders to the specified value "
-         "[float]")
-        //
         (PARAM_COLOR_SCHEME.c_str(), po::value<std::string>(),
          "Color scheme to be applied to the geometry "
-         "[none|neuron-by-id|neuron-by-type|neuron-by-segment-type|"
-         "neuron-by-layer|neuron-by-mtype|neuron-by-etype|neuron-by-"
-         "target|protein-by-id|protein-atoms|protein-chains|protein-"
-         "residues]")
+         "[protein-by-id|protein-atoms|protein-chains|protein-residues]")
         //
         (PARAM_GEOMETRY_QUALITY.c_str(), po::value<std::string>(),
          "Geometry rendering quality [low|medium|high]")
@@ -130,16 +101,6 @@ GeometryParameters::GeometryParameters()
         //
         (PARAM_CIRCUIT_REPORT.c_str(), po::value<std::string>(),
          "Circuit report [string]")
-        //
-        (PARAM_MORPHOLOGY_SECTION_TYPES.c_str(), po::value<size_t>(),
-         "Morphology section types (1: soma, 2: axon, 4: dendrite, "
-         "8: apical dendrite). Values can be added to select more than "
-         "one type of section")
-        //
-        (PARAM_MORPHOLOGY_LAYOUT.c_str(), po::value<size_ts>()->multitoken(),
-         "Morphology layout defined by number of "
-         "columns, vertical spacing, horizontal spacing "
-         "[int int int]")
         //
         (PARAM_CIRCUIT_START_SIMULATION_TIME.c_str(), po::value<double>(),
          "Start simulation timestamp [double]")
@@ -157,45 +118,17 @@ GeometryParameters::GeometryParameters()
         (PARAM_CIRCUIT_RANDOM_SEED.c_str(), po::value<size_t>(),
          "Random seed for circuit [int]")
         //
-        (PARAM_METABALLS_GRIDSIZE.c_str(), po::value<size_t>(),
-         "Metaballs grid size [int]. Activates automated meshing of somas "
-         "if different from 0")
-        //
-        (PARAM_METABALLS_THRESHOLD.c_str(), po::value<float>(),
-         "Metaballs threshold [float]")
-        //
-        (PARAM_METABALLS_SAMPLES_FROM_SOMA.c_str(), po::value<size_t>(),
-         "Number of morphology samples (or segments) from soma used by "
-         "automated meshing [int]")
-        //
-        (PARAM_MORPHOLOGY_DAMPEN_BRANCH_THICKNESS_CHANGERATE.c_str(),
-         po::bool_switch()->default_value(false),
-         "Dampen the thickness rate of change for branches in the morphology.")
-        //
-        (PARAM_MORPHOLOGY_USE_SDF_GEOMETRIES.c_str(),
-         po::bool_switch()->default_value(false),
-         "Use SDF geometries for drawing the morphologies.")
-        //
-        (PARAM_CIRCUIT_USES_SIMULATION_MODEL.c_str(),
-         po::bool_switch()->default_value(false),
-         "Defines if a different model is used to handle the simulation "
-         "geometry.")
-        //
         (PARAM_CIRCUIT_BOUNDING_BOX.c_str(), po::value<floats>()->multitoken(),
          "Does not load circuit geometry outside of the specified "
-         "bounding "
-         "box"
-         "[float float float float float float]")
+         "bounding box [float float float float float float]")
         //
         (PARAM_MEMORY_MODE.c_str(), po::value<std::string>(),
          "Defines what memory mode should be used between Brayns and "
-         "the "
-         "underlying renderer [shared|replicated]")
+         "the underlying renderer [shared|replicated]")
         //
         (PARAM_CIRCUIT_MESH_FILENAME_PATTERN.c_str(), po::value<std::string>(),
          "Pattern used to determine the name of the file containing a "
-         "meshed "
-         "morphology [string]")
+         "meshed morphology [string]")
         //
         (PARAM_CIRCUIT_MESH_TRANSFORMATION.c_str(),
          po::bool_switch()->default_value(false),
@@ -230,8 +163,6 @@ void GeometryParameters::parse(const po::variables_map& vm)
     }
     if (vm.count(PARAM_RADIUS_MULTIPLIER))
         _radiusMultiplier = vm[PARAM_RADIUS_MULTIPLIER].as<float>();
-    if (vm.count(PARAM_RADIUS_CORRECTION))
-        _radiusCorrection = vm[PARAM_RADIUS_CORRECTION].as<float>();
     if (vm.count(PARAM_GEOMETRY_QUALITY))
     {
         _geometryQuality = GeometryQuality::low;
@@ -254,31 +185,7 @@ void GeometryParameters::parse(const po::variables_map& vm)
     if (vm.count(PARAM_CIRCUIT_MESH_FOLDER))
         _circuitConfiguration.meshFolder =
             vm[PARAM_CIRCUIT_MESH_FOLDER].as<std::string>();
-    if (vm.count(PARAM_MORPHOLOGY_SECTION_TYPES))
-    {
-        _morphologySectionTypes.clear();
-        const auto bits = vm[PARAM_MORPHOLOGY_SECTION_TYPES].as<size_t>();
-        if (bits & size_t(MorphologySectionType::soma))
-            _morphologySectionTypes.push_back(MorphologySectionType::soma);
-        if (bits & size_t(MorphologySectionType::axon))
-            _morphologySectionTypes.push_back(MorphologySectionType::axon);
-        if (bits & size_t(MorphologySectionType::dendrite))
-            _morphologySectionTypes.push_back(MorphologySectionType::dendrite);
-        if (bits & size_t(MorphologySectionType::apical_dendrite))
-            _morphologySectionTypes.push_back(
-                MorphologySectionType::apical_dendrite);
-    }
 
-    if (vm.count(PARAM_MORPHOLOGY_LAYOUT))
-    {
-        size_ts values = vm[PARAM_MORPHOLOGY_LAYOUT].as<size_ts>();
-        if (values.size() == 3)
-        {
-            _morphologyLayout.nbColumns = values[0];
-            _morphologyLayout.verticalSpacing = values[1];
-            _morphologyLayout.horizontalSpacing = values[2];
-        }
-    }
     if (vm.count(PARAM_CIRCUIT_START_SIMULATION_TIME))
         _circuitConfiguration.startSimulationTime =
             vm[PARAM_CIRCUIT_START_SIMULATION_TIME].as<double>();
@@ -299,19 +206,6 @@ void GeometryParameters::parse(const po::variables_map& vm)
         _circuitConfiguration.randomSeed =
             vm[PARAM_CIRCUIT_RANDOM_SEED].as<size_t>();
 
-    if (vm.count(PARAM_METABALLS_GRIDSIZE))
-        _metaballsGridSize = vm[PARAM_METABALLS_GRIDSIZE].as<size_t>();
-    if (vm.count(PARAM_METABALLS_THRESHOLD))
-        _metaballsThreshold = vm[PARAM_METABALLS_THRESHOLD].as<float>();
-    if (vm.count(PARAM_METABALLS_SAMPLES_FROM_SOMA))
-        _metaballsSamplesFromSoma =
-            vm[PARAM_METABALLS_SAMPLES_FROM_SOMA].as<size_t>();
-    _morphologyDampenBranchThicknessChangerate =
-        vm[PARAM_MORPHOLOGY_DAMPEN_BRANCH_THICKNESS_CHANGERATE].as<bool>();
-    _morphologyUseSDFGeometries =
-        vm[PARAM_MORPHOLOGY_USE_SDF_GEOMETRIES].as<bool>();
-    _circuitConfiguration.useSimulationModel =
-        vm[PARAM_CIRCUIT_USES_SIMULATION_MODEL].as<bool>();
     if (vm.count(PARAM_CIRCUIT_BOUNDING_BOX))
     {
         const floats values = vm[PARAM_CIRCUIT_BOUNDING_BOX].as<floats>();
@@ -370,8 +264,6 @@ void GeometryParameters::print()
                 << getColorSchemeAsString(_colorScheme) << std::endl;
     BRAYNS_INFO << "Radius multiplier          : " << _radiusMultiplier
                 << std::endl;
-    BRAYNS_INFO << "Radius correction          : " << _radiusCorrection
-                << std::endl;
     BRAYNS_INFO << "Geometry quality           : "
                 << getGeometryQualityAsString(_geometryQuality) << std::endl;
     BRAYNS_INFO << "Circuit configuration      : " << std::endl;
@@ -395,25 +287,6 @@ void GeometryParameters::print()
                 << _circuitConfiguration.boundingBox << std::endl;
     BRAYNS_INFO << " - Mesh transformation     : "
                 << (_circuitConfiguration.meshTransformation ? "Yes" : "No")
-                << std::endl;
-    BRAYNS_INFO << "Morphology section types   : "
-                << enumsToBitmask(_morphologySectionTypes) << std::endl;
-    BRAYNS_INFO << "Morphology Layout          : " << std::endl;
-    BRAYNS_INFO << " - Columns                 : "
-                << _morphologyLayout.nbColumns << std::endl;
-    BRAYNS_INFO << " - Vertical spacing        : "
-                << _morphologyLayout.verticalSpacing << std::endl;
-    BRAYNS_INFO << " - Horizontal spacing      : "
-                << _morphologyLayout.horizontalSpacing << std::endl;
-    BRAYNS_INFO << "Metaballs                  : " << std::endl;
-    BRAYNS_INFO << " - Grid size               : " << _metaballsGridSize
-                << std::endl;
-    BRAYNS_INFO << " - Threshold               : " << _metaballsThreshold
-                << std::endl;
-    BRAYNS_INFO << " - Samples from soma       : " << _metaballsSamplesFromSoma
-                << std::endl;
-    BRAYNS_INFO << "Use simulation model       : "
-                << (_circuitConfiguration.useSimulationModel ? "Yes" : "No")
                 << std::endl;
     BRAYNS_INFO << "Memory mode                : "
                 << (_memoryMode == MemoryMode::shared ? "Shared" : "Replicated")

@@ -21,6 +21,8 @@
 #ifndef MORPHOLOGY_LOADER_H
 #define MORPHOLOGY_LOADER_H
 
+#include "../MorphologyParameters.h"
+
 #include <brayns/common/loader/Loader.h>
 #include <brayns/common/types.h>
 #include <brayns/parameters/GeometryParameters.h>
@@ -46,7 +48,9 @@ class MorphologyLoader : public Loader
 {
 public:
     MorphologyLoader(Scene& scene,
+                     const MorphologyParameters& parameters,
                      const GeometryParameters& geometryParameters);
+
     ~MorphologyLoader();
 
     bool isSupported(const std::string& filename,

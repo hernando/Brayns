@@ -69,48 +69,68 @@ public:
      */
     BRAYNS_API void parse(int argc, const char** argv);
 
-    /**
-       Gets animation parameters
-       @return Animation parameters for the current scene
-    */
-    BRAYNS_API AnimationParameters& getAnimationParameters();
+    AnimationParameters& getAnimationParameters()
+    {
+        return _animationParameters;
+    }
+    const AnimationParameters& getAnimationParameters() const
+    {
+        return _animationParameters;
+    }
 
-    /**
-       Gets rendering parameters
-       @return Rendering parameters for the current scene
-    */
-    BRAYNS_API RenderingParameters& getRenderingParameters();
+    RenderingParameters& getRenderingParameters()
+    {
+        return _renderingParameters;
+    }
+    const RenderingParameters& getRenderingParameters() const
+    {
+        return _renderingParameters;
+    }
 
-    /**
-       Gets geometry parameters
-       @return Geometry parameters for the current scene
-    */
-    BRAYNS_API GeometryParameters& getGeometryParameters();
+    GeometryParameters& getGeometryParameters()
+    {
+        return _geometryParameters;
+    }
+    const GeometryParameters& getGeometryParameters() const
+    {
+        return _geometryParameters;
+    }
 
-    /**
-       Gets application parameters
-       @return Application parameters for the current scene
-    */
-    BRAYNS_API ApplicationParameters& getApplicationParameters();
-    BRAYNS_API const ApplicationParameters& getApplicationParameters() const;
+    ApplicationParameters& getApplicationParameters()
+    {
+        return _applicationParameters;
+    }
+    const ApplicationParameters& getApplicationParameters() const
+    {
+        return _applicationParameters;
+    }
 
-    /**
-       Gets scene parameters
-       @return Parameters for the current scene
-    */
-    BRAYNS_API SceneParameters& getSceneParameters();
+    SceneParameters& getSceneParameters()
+    {
+        return _sceneParameters;
+    }
+    const SceneParameters& getSceneParameters() const
+    {
+        return _sceneParameters;
+    }
 
-    /**
-       Gets stream parameters
-       @return Parameters for streaming.
-    */
-    BRAYNS_API StreamParameters& getStreamParameters();
+    StreamParameters& getStreamParameters()
+    {
+        return _streamParameters;
+    }
+    const StreamParameters& getStreamParameters() const
+    {
+        return _streamParameters;
+    }
 
-    /**
-       Gets volume parameters
-       @return Parameters for the current volume
-    */
-    BRAYNS_API VolumeParameters& getVolumeParameters();
+    VolumeParameters& getVolumeParameters()
+    {
+        return _volumeParameters;
+    }
+    const VolumeParameters& getVolumeParameters() const
+    {
+        return _volumeParameters;
+    }
 
     /**
        Sets a parameter (application, geometry, rendering, etc). If the

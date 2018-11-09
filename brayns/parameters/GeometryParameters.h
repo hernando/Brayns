@@ -29,22 +29,8 @@ SERIALIZATION_ACCESS(GeometryParameters)
 
 namespace brayns
 {
-/**
- * Defines how morphologies should be organized in space when the layout mode is
- * selected. The idea is to present the morphology in a grid with a given number
- * of columns, and a spacing in between. The spacing scale is the same as the
- * one from the morphologies.
- */
-struct MorphologyLayout
-{
-    size_t nbColumns{0};
-    size_t verticalSpacing{0};
-    size_t horizontalSpacing{0};
-};
-
 struct CircuitConfiguration
 {
-    bool useSimulationModel{false};
     Boxd boundingBox{{0, 0, 0}, {0, 0, 0}};
     float density{100};
     std::string meshFilenamePattern;
@@ -114,20 +100,6 @@ public:
     }
 
     /**
-     * Defines if a different model is used to handle the simulation geometry.
-     * If set to True, the shading of the main geometry model will be done
-     * using information stored in a secondary model that contains the
-     * simulation information. See OSPRay simulation renderer for more details.
-     */
-    bool getCircuitUseSimulationModel() const
-    {
-        return _circuitConfiguration.useSimulationModel;
-    }
-    void setCircuitUseSimulationModel(const bool value)
-    {
-        _updateValue(_circuitConfiguration.useSimulationModel, value);
-    }
-    /**
      * Return the filename pattern use to load meshes
      */
     const std::string& getCircuitMeshFilenamePattern() const
@@ -143,17 +115,9 @@ public:
         _updateValue(_radiusMultiplier, value);
     }
     float getRadiusMultiplier() const { return _radiusMultiplier; }
-    /** Radius correction applied to spheres and cylinders.
-     * @param value Radius value. The radius contained in the data source is
-     *        ignored and all geometries use the specified value.
-     */
-    void setRadiusCorrection(const float value)
-    {
-        _updateValue(_radiusCorrection, value);
-    }
-    float getRadiusCorrection() const { return _radiusCorrection; }
-    /** Enables a different color for every molecule/morphology/mesh when
-     * loading them from a given folder
+
+    /** Enables a different color for every scene element whenloading them
+     * from a given folder.
      */
     ColorScheme getColorScheme() const { return _colorScheme; }
     const std::string& getColorSchemeAsString(const ColorScheme value) const;
@@ -162,21 +126,10 @@ public:
         _updateValue(_colorScheme, value);
     }
 
-    /** Morphology quality */
+    /** Mesh quality */
     GeometryQuality getGeometryQuality() const { return _geometryQuality; }
     const std::string& getGeometryQualityAsString(
         const GeometryQuality value) const;
-
-    /** Morphology section types*/
-    const MorphologySectionTypes& getMorphologySectionTypes() const
-    {
-        return _morphologySectionTypes;
-    }
-    /** Morphology layout */
-    const MorphologyLayout& getMorphologyLayout() const
-    {
-        return _morphologyLayout;
-    }
 
     /** Defines the range of frames to be loaded for the simulation */
     double getCircuitEndSimulationTime() const
@@ -207,32 +160,11 @@ public:
         return _circuitConfiguration.randomSeed;
     }
 
-    /** Metaballs grid size */
-    size_t getMetaballsGridSize() const { return _metaballsGridSize; }
-    /** Metaballs threshold */
-    float getMetaballsThreshold() const { return _metaballsThreshold; }
-    /** Metaballs samples from soma */
-    size_t getMetaballsSamplesFromSoma() const
-    {
-        return _metaballsSamplesFromSoma;
-    }
-
-    /** Realistic somas enabled? */
-    bool useRealisticSomas() const { return _metaballsGridSize != 0; }
     /**
      * Defines what memory mode should be used between Brayns and the
      * underlying renderer
      */
     MemoryMode getMemoryMode() const { return _memoryMode; };
-    bool getMorphologyDampenBranchThicknessChangerate() const
-    {
-        return _morphologyDampenBranchThicknessChangerate;
-    }
-
-    bool getMorphologyUseSDFGeometries() const
-    {
-        return _morphologyUseSDFGeometries;
-    }
 
     const std::set<BVHFlag>& getDefaultBVHFlags() const
     {
@@ -248,20 +180,12 @@ protected:
     // Scene
     std::string _loadCacheFile;
     std::string _saveCacheFile;
+    std::set<BVHFlag> _defaultBVHFlags;
 
-    // Morphology
+    // Geometry
     float _radiusMultiplier;
-    float _radiusCorrection;
     ColorScheme _colorScheme;
     GeometryQuality _geometryQuality;
-    std::set<BVHFlag> _defaultBVHFlags;
-    MorphologySectionTypes _morphologySectionTypes;
-    MorphologyLayout _morphologyLayout;
-    size_t _metaballsGridSize;
-    float _metaballsThreshold;
-    size_t _metaballsSamplesFromSoma;
-    bool _morphologyDampenBranchThicknessChangerate;
-    bool _morphologyUseSDFGeometries;
 
     // System parameters
     MemoryMode _memoryMode;

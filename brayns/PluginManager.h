@@ -42,6 +42,9 @@ public:
     /** Calls ExtensionPlugin::init in all loaded plugins */
     void initPlugins(PluginAPI* api);
 
+    /** Calls ExtensionPlugin::getOptions in all loaded plugins */
+    void getPluginOptions(ParametersManager& parametersManager);
+
     /** Calls ExtensionPlugin::preRender in all loaded plugins */
     void preRender();
 

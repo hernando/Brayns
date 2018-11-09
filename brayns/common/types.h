@@ -207,13 +207,6 @@ enum class FrameBufferFormat
 enum class ColorScheme
 {
     none = 0,
-    neuron_by_id = 1,
-    neuron_by_type = 2,
-    neuron_by_segment_type = 3,
-    neuron_by_layer = 4,
-    neuron_by_mtype = 5,
-    neuron_by_etype = 6,
-    neuron_by_target = 7,
     protein_by_id = 8,
     protein_atoms = 9,
     protein_chains = 10,
@@ -227,17 +220,6 @@ enum class GeometryQuality
     medium,
     high
 };
-
-/** Morphology element types */
-enum class MorphologySectionType
-{
-    soma = 0x01,
-    axon = 0x02,
-    dendrite = 0x04,
-    apical_dendrite = 0x08,
-    all = 0xff
-};
-using MorphologySectionTypes = std::vector<MorphologySectionType>;
 
 template <typename T>
 size_t enumsToBitmask(const std::vector<T> enums)
