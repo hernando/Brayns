@@ -20,7 +20,15 @@
 
 #pragma once
 
+#include <brayns/common/types.h>
 #include <brayns/parameters/AbstractParameters.h>
+
+namespace brayns
+{
+class CircuitParameters;
+}
+
+SERIALIZATION_ACCESS(CircuitParameters)
 
 namespace brayns
 {
@@ -85,5 +93,7 @@ private:
     std::string _meshFolder;
     std::string _meshFilePattern;
     bool _transformMeshes{true};
+
+    SERIALIZATION_FRIEND(CircuitParameters)
 };
 }

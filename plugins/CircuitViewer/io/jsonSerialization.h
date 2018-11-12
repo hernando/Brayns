@@ -81,4 +81,27 @@ inline void init(brayns::MorphologyParameters* p, Objecthandler* h)
     h->add_property("use_simulation_model",
                     &p->_useSimulationModel, Flags::Optional);
 }
+
+inline void init(brayns::CircuitParameters* c, ObjectHandler* h)
+{
+    h->add_property("targets", &c->targets, Flags::Optional);
+    h->add_property("density", &c->density, Flags::Optional);
+    h->add_property("random_seed", &c->randomSeed, Flags::Optional);
+    h->add_property("report", &c->report, Flags::Optional);
+    h->add_property("start_simulation_time", &c->startSimulationTime,
+                    Flags::Optional);
+    h->add_property("end_simulation_time", &c->endSimulationTime,
+                    Flags::Optional);
+    h->add_property("simulation_step", &c->simulationStep, Flags::Optional);
+    h->add_property("simulation_values_range",
+                    toArray(c->simulationValuesRange), Flags::Optional);
+    h->set_flags(Flags::DisallowUnknownKey);
+    h->add_property("bounding_box", &c->boundingBox, Flags::Optional);
+    h->add_property("mesh_folder", &c->meshFolder, Flags::Optional);
+    h->add_property("mesh_filename_pattern", &c->meshFilenamePattern,
+                    Flags::Optional);
+    h->add_property("transform_meshes", &c->_transformMeshes,
+                    Flags::Optional);
+
+}
 }
