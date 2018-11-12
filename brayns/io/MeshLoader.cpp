@@ -334,22 +334,6 @@ size_t MeshLoader::_getQuality() const
     }
 }
 
-std::string MeshLoader::getMeshFilenameFromGID(const uint64_t gid) const
-{
-    const auto meshedMorphologiesFolder =
-        _geometryParameters.getCircuitMeshFolder();
-    auto meshFilenamePattern =
-        _geometryParameters.getCircuitMeshFilenamePattern();
-    const std::string gidAsString = std::to_string(gid);
-    const std::string GID = "{gid}";
-    if (!meshFilenamePattern.empty())
-        meshFilenamePattern.replace(meshFilenamePattern.find(GID), GID.length(),
-                                    gidAsString);
-    else
-        meshFilenamePattern = gidAsString;
-    return meshedMorphologiesFolder + "/" + meshFilenamePattern;
-}
-
 void MeshLoader::importMesh(const std::string& fileName,
                             const LoaderProgress& callback, Model& model,
                             const size_t index,

@@ -41,13 +41,23 @@ class CircuitLoader::Impl
 {
 public:
     Impl(const ParametersManager& parameters,
+         const CircuitParameters& circuitParameters,
          const MorphologyParameters& morphologyParameters,
          CircuitLoader& parent)
         : _parent(parent)
         , _applicationParameters(parameters.getApplicationParameters())
+        , _parameters(circuitParameters)
         , _geometryParameters(parameters.getGeometryParameters())
         , _morphologyParameters(morphologyParameters)
     {
+    }
+
+    ModelDescriptorPtr importCircuit(const std::string& source,
+                                     const LoaderProgress& callback) const
+    {
+        return importCircuit(source, callback,
+                             _parameters.getTargetsAsStrings(),
+                             _parameters.getReport());
     }
 
     ModelDescriptorPtr importCircuit(const std::string& source,
@@ -57,176 +67,157 @@ public:
     {
         bool returnValue = true;
         ModelDescriptorPtr modelDesc;
-        try
+
+        // Model (one for the whole circuit)
+        ModelMetadata metadata = {{"density",
+                                   std::to_string(_parameters.getDensity())},
+                                  {"report", _parameters.getReport()},
+                                  {"targets", _parameters.getTargets()},
+                                  {"mesh-filename-pattern",
+                                   _parameters.getMeshFilePattern()},
+                                  {"mesh-folder", _parameters.getMeshFolder()}};
+        auto model = _parent._scene.createModel();
+
+        // Open Circuit and select GIDs according to specified target
+        const brion::BlueConfig bc(source);
+        const brain::Circuit circuit(bc);
+        const auto circuitDensity = _parameters.getDensity() / 100.f;
+
+        brain::GIDSet allGids;
+        GIDOffsets targetGIDOffsets;
+        targetGIDOffsets.push_back(0);
+
+        strings localTargets;
+        if (targets.empty())
+            localTargets.push_back(bc.getCircuitTarget());
+        else
+            localTargets = targets;
+
+        for (const auto& target : localTargets)
         {
-            // Model (one for the whole circuit)
-            ModelMetadata metadata = {
-                {"density",
-                 std::to_string(_geometryParameters.getCircuitDensity())},
-                {"report", _geometryParameters.getCircuitReport()},
-                {"targets", _geometryParameters.getCircuitTargets()},
-                {"mesh-filename-pattern",
-                 _geometryParameters.getCircuitMeshFilenamePattern()},
-                {"mesh-folder", _geometryParameters.getCircuitMeshFolder()}};
-            auto model = _parent._scene.createModel();
+            const auto targetGids =
+                circuit.getRandomGIDs(circuitDensity, target,
+                                      _parameters.getRandomSeed());
+            const Matrix4fs& allTransformations =
+                circuit.getTransforms(targetGids);
 
-            // Open Circuit and select GIDs according to specified target
-            const brion::BlueConfig bc(source);
-            const brain::Circuit circuit(bc);
-            const auto circuitDensity =
-                _geometryParameters.getCircuitDensity() / 100.f;
-
-            brain::GIDSet allGids;
-            GIDOffsets targetGIDOffsets;
-            targetGIDOffsets.push_back(0);
-
-            strings localTargets;
-            if (targets.empty())
-                localTargets.push_back(bc.getCircuitTarget());
+            brain::GIDSet gids;
+            const auto& aabb = _parameters.getBoundingBox();
+            if (aabb.getSize() == Vector3f(0.f))
+                gids = targetGids;
             else
-                localTargets = targets;
-
-            for (const auto& target : localTargets)
             {
-                const auto targetGids = circuit.getRandomGIDs(
-                    circuitDensity, target,
-                    _geometryParameters.getCircuitRandomSeed());
-                const Matrix4fs& allTransformations =
-                    circuit.getTransforms(targetGids);
-
-                brain::GIDSet gids;
-                const auto& aabb = _geometryParameters.getCircuitBoundingBox();
-                if (aabb.getSize() == Vector3f(0.f))
-                    gids = targetGids;
-                else
+                auto gidIterator = targetGids.begin();
+                for (size_t i = 0; i < allTransformations.size(); ++i)
                 {
-                    auto gidIterator = targetGids.begin();
-                    for (size_t i = 0; i < allTransformations.size(); ++i)
-                    {
-                        if (aabb.isIn(Vector3d(
-                                allTransformations[i].getTranslation())))
-                            gids.insert(*gidIterator);
-                        ++gidIterator;
-                    }
-                }
-
-                if (gids.empty())
-                {
-                    BRAYNS_ERROR << "Target " << target
-                                 << " does not contain any cells" << std::endl;
-                    continue;
-                }
-
-                BRAYNS_INFO << "Target " << target << ": " << gids.size()
-                            << " cells" << std::endl;
-                allGids.insert(gids.begin(), gids.end());
-                targetGIDOffsets.push_back(allGids.size());
-            }
-
-            if (allGids.empty())
-                return {};
-
-            // Load simulation information from compartment report
-            CompartmentReportPtr compartmentReport;
-            AbstractSimulationHandlerPtr simulationHandler;
-            if (!report.empty())
-            {
-                try
-                {
-                    auto handler = std::make_shared<SimulationHandler>(
-                        _applicationParameters, _geometryParameters,
-                        bc.getReportSource(report), allGids);
-                    compartmentReport = handler->getCompartmentReport();
-                    // Only keep simulated GIDs
-                    if (compartmentReport)
-                    {
-                        allGids = compartmentReport->getGIDs();
-                        simulationHandler = handler;
-                    }
-                }
-                catch (const std::exception& e)
-                {
-                    BRAYNS_ERROR << e.what() << std::endl;
+                    if (aabb.isIn(
+                            Vector3d(allTransformations[i].getTranslation())))
+                        gids.insert(*gidIterator);
+                    ++gidIterator;
                 }
             }
 
-            if (!_geometryParameters.getLoadCacheFile().empty())
-                return {};
+            if (gids.empty())
+            {
+                BRAYNS_ERROR << "Target " << target
+                             << " does not contain any cells" << std::endl;
+                continue;
+            }
 
-            const Matrix4fs& transformations = circuit.getTransforms(allGids);
-            _logLoadedGIDs(allGids);
+            BRAYNS_INFO << "Target " << target << ": " << gids.size()
+                        << " cells" << std::endl;
+            allGids.insert(gids.begin(), gids.end());
+            targetGIDOffsets.push_back(allGids.size());
+        }
 
-            const auto layerIds = _populateLayerIds(bc, allGids);
-            const auto& electrophysiologyTypes =
-                circuit.getElectrophysiologyTypes(allGids);
-            const auto& morphologyTypes = circuit.getMorphologyTypes(allGids);
+        if (allGids.empty())
+            return {};
 
-            // Import meshes
+        // Load simulation information from compartment report
+        CompartmentReportPtr compartmentReport;
+        AbstractSimulationHandlerPtr simulationHandler;
+        if (!report.empty())
+        {
+            try
+            {
+                auto handler = std::make_shared<SimulationHandler>(
+                    _applicationParameters, _parameters,
+                    bc.getReportSource(report), allGids);
+                compartmentReport = handler->getCompartmentReport();
+                // Only keep simulated GIDs
+                if (compartmentReport)
+                {
+                    allGids = compartmentReport->getGIDs();
+                    simulationHandler = handler;
+                }
+            }
+            catch (const std::exception& e)
+            {
+                BRAYNS_ERROR << e.what() << std::endl;
+            }
+        }
+
+        if (!_geometryParameters.getLoadCacheFile().empty())
+            return {};
+
+        const Matrix4fs& transformations = circuit.getTransforms(allGids);
+        _logLoadedGIDs(allGids);
+
+        const auto layerIds = _populateLayerIds(bc, allGids);
+        const auto& electrophysiologyTypes =
+            circuit.getElectrophysiologyTypes(allGids);
+        const auto& morphologyTypes = circuit.getMorphologyTypes(allGids);
+
+        // Import meshes
+        returnValue = returnValue &&
+                      _importMeshes(callback, *model, allGids, transformations,
+                                    targetGIDOffsets, layerIds, morphologyTypes,
+                                    electrophysiologyTypes);
+
+        // Import morphologies
+        const auto useSimulationModel =
+            _morphologyParameters.useSimulationModel();
+        model->useSimulationModel(useSimulationModel);
+        if (_parameters.getMeshFolder().empty() || useSimulationModel)
+        {
+            MorphologyLoader morphLoader(_parent._scene, _morphologyParameters,
+                                         _geometryParameters);
             returnValue =
                 returnValue &&
-                _importMeshes(callback, *model, allGids, transformations,
-                              targetGIDOffsets, layerIds, morphologyTypes,
-                              electrophysiologyTypes);
-
-            // Import morphologies
-            const auto useSimulationModel =
-                _morphologyParameters.useSimulationModel();
-            model->useSimulationModel(useSimulationModel);
-            if (_geometryParameters.getCircuitMeshFolder().empty() ||
-                useSimulationModel)
-            {
-                MorphologyLoader morphLoader(_parent._scene,
-                                             _morphologyParameters,
-                                             _geometryParameters);
-                returnValue =
-                    returnValue &&
-                    _importMorphologies(circuit, callback, *model, allGids,
-                                        transformations, targetGIDOffsets,
-                                        compartmentReport, morphLoader,
-                                        layerIds, morphologyTypes,
-                                        electrophysiologyTypes);
-            }
-
-            // Attach simulation handler
-            if (simulationHandler)
-                model->setSimulationHandler(simulationHandler);
-
-            // Create materials
-            model->createMissingMaterials();
-
-            // Compute circuit center
-            Boxf circuitCenter;
-            for (const auto& transformation : transformations)
-                circuitCenter.merge(transformation.getTranslation());
-
-            Transformation transformation;
-            transformation.setRotationCenter(circuitCenter.getCenter());
-            modelDesc =
-                std::make_shared<ModelDescriptor>(std::move(model), "Circuit",
-                                                  source, metadata);
-            modelDesc->setTransformation(transformation);
+                _importMorphologies(circuit, callback, *model, allGids,
+                                    transformations, targetGIDOffsets,
+                                    compartmentReport, morphLoader, layerIds,
+                                    morphologyTypes, electrophysiologyTypes);
         }
-        catch (const std::exception& error)
-        {
-            BRAYNS_ERROR << "Failed to open " << source << ": " << error.what()
-                         << std::endl;
-            return {};
-        }
+
+        // Attach simulation handler
+        if (simulationHandler)
+            model->setSimulationHandler(simulationHandler);
+
+        // Create materials
+        model->createMissingMaterials();
+
+        // Compute circuit center
+        Boxf circuitCenter;
+        for (const auto& transformation : transformations)
+            circuitCenter.merge(transformation.getTranslation());
+
+        Transformation transformation;
+        transformation.setRotationCenter(circuitCenter.getCenter());
+        modelDesc =
+            std::make_shared<ModelDescriptor>(std::move(model), "Circuit",
+                                              source, metadata);
+        modelDesc->setTransformation(transformation);
 
         if (returnValue)
             return modelDesc;
         return {};
     }
 
-    const GeometryParameters& geometryParameters() const
-    {
-        return _geometryParameters;
-    }
-
 private:
     /**
-     * @brief _getMaterialFromSectionType return a material determined by the
-     * --color-scheme geometry parameter
+     * Return a material determined by the --morphology-color-scheme option
+     *
      * @param index Index of the element to which the material will attached
      * @param material Material that is forced in case geometry parameters
      * do not apply
@@ -234,12 +225,12 @@ private:
      * will be applied
      * @return Material ID determined by the geometry parameters
      */
-    size_t _getMaterialFromGeometryParameters(
-        const uint64_t index, const size_t material,
-        const brain::neuron::SectionType sectionType,
-        const GIDOffsets& targetGIDOffsets, const size_ts& layerIds,
-        const size_ts& morphologyTypes, const size_ts& electrophysiologyTypes,
-        bool isMesh = false) const
+    size_t _getMaterial(const uint64_t index, const size_t material,
+                        const brain::neuron::SectionType sectionType,
+                        const GIDOffsets& targetGIDOffsets,
+                        const size_ts& layerIds, const size_ts& morphologyTypes,
+                        const size_ts& electrophysiologyTypes,
+                        bool isMesh = false) const
     {
         if (material != NO_MATERIAL)
             return material;
@@ -359,8 +350,7 @@ private:
 #if BRAYNS_USE_ASSIMP
         MeshLoader meshLoader(_parent._scene, _geometryParameters);
         size_t loadingFailures = 0;
-        const auto meshedMorphologiesFolder =
-            _geometryParameters.getCircuitMeshFolder();
+        const auto meshedMorphologiesFolder = _parameters.getMeshFolder();
         if (meshedMorphologiesFolder.empty())
             return true;
 
@@ -370,21 +360,20 @@ private:
         message << "Loading " << gids.size() << " meshes...";
         for (const auto& gid : gids)
         {
-            const size_t materialId = _getMaterialFromGeometryParameters(
-                meshIndex, NO_MATERIAL, brain::neuron::SectionType::undefined,
-                targetGIDOffsets, layerIds, morphologyTypes,
-                electrophysiologyTypes, true);
+            const size_t materialId =
+                _getMaterial(meshIndex, NO_MATERIAL,
+                             brain::neuron::SectionType::undefined,
+                             targetGIDOffsets, layerIds, morphologyTypes,
+                             electrophysiologyTypes, true);
 
             // Load mesh from file
-            const auto transformation =
-                _geometryParameters.getCircuitMeshTransformation()
-                    ? transformations[meshIndex]
-                    : Matrix4f();
+            const auto transformation = _parameters.transformMeshes()
+                                            ? transformations[meshIndex]
+                                            : Matrix4f();
             try
             {
-                meshLoader.importMesh(meshLoader.getMeshFilenameFromGID(gid),
-                                      callback, model, meshIndex,
-                                      transformation, materialId);
+                meshLoader.importMesh(_getMeshFilename(gid), callback, model,
+                                      meshIndex, transformation, materialId);
             }
             catch (...)
             {
@@ -436,13 +425,14 @@ private:
                     ParallelModelContainer modelContainer;
                     const auto& uri = uris[morphologyIndex];
 
+                    const auto getMaterial =
+                        std::bind(&Impl::_getMaterial, this, morphologyIndex,
+                                  NO_MATERIAL, std::placeholders::_1,
+                                  targetGIDOffsets, layerIds, morphologyTypes,
+                                  electrophysiologyTypes, false);
+
                     if (!morphLoader._importMorphology(
-                            uri, morphologyIndex,
-                            std::bind(&Impl::_getMaterialFromGeometryParameters,
-                                      this, morphologyIndex, NO_MATERIAL,
-                                      std::placeholders::_1, targetGIDOffsets,
-                                      layerIds, morphologyTypes,
-                                      electrophysiologyTypes, false),
+                            uri, morphologyIndex, getMaterial,
                             transformations[morphologyIndex], compartmentReport,
                             modelContainer))
 #pragma omp atomic
@@ -476,18 +466,41 @@ private:
         return true;
     }
 
+    /**
+     * Return the name of the mesh file accordingto the --circuit-mesh-folder
+     * and --circuit-mesh-filename-pattern options and a GID.
+     *
+     * @param gid GID of the cell
+     * @return A string with the full path of the mesh file
+     */
+    std::string _getMeshFilename(const uint64_t gid) const
+    {
+        const auto& meshFolder = _parameters.getMeshFolder();
+        auto filePattern = _parameters.getMeshFilePattern();
+        const std::string gidAsString = std::to_string(gid);
+        const std::string GID = "{gid}";
+        if (!filePattern.empty())
+            filePattern.replace(filePattern.find(GID), GID.length(),
+                                gidAsString);
+        else
+            filePattern = gidAsString;
+        return meshFolder + "/" + filePattern;
+    }
+
 private:
     CircuitLoader& _parent;
     const ApplicationParameters& _applicationParameters;
+    const CircuitParameters& _parameters;
     const GeometryParameters& _geometryParameters;
     const MorphologyParameters& _morphologyParameters;
 };
 
-CircuitLoader::CircuitLoader(Scene& scene,
-                             const ParametersManager& parameters,
+CircuitLoader::CircuitLoader(Scene& scene, const ParametersManager& parameters,
+                             const CircuitParameters& circuitParameters,
                              const MorphologyParameters& morphologyParameters)
     : Loader(scene)
-    , _impl(new CircuitLoader::Impl(parameters, morphologyParameters, *this))
+    , _impl(new CircuitLoader::Impl(parameters, circuitParameters,
+                                    morphologyParameters, *this))
 {
 }
 
@@ -527,10 +540,16 @@ ModelDescriptorPtr CircuitLoader::importFromFile(
     const std::string& filename, const LoaderProgress& callback,
     const size_t /*index*/, const size_t /*materialID*/) const
 {
-    return _impl->importCircuit(
-        filename, callback,
-        _impl->geometryParameters().getCircuitTargetsAsStrings(),
-        _impl->geometryParameters().getCircuitReport());
+    try
+    {
+        return _impl->importCircuit(filename, callback);
+    }
+    catch (const std::exception& error)
+    {
+        BRAYNS_ERROR << "Failed to open " << filename << ": " << error.what()
+                     << std::endl;
+        return {};
+    }
 }
 
 ModelDescriptorPtr CircuitLoader::importCircuit(const servus::URI& uri,
@@ -538,6 +557,15 @@ ModelDescriptorPtr CircuitLoader::importCircuit(const servus::URI& uri,
                                                 const strings& targets,
                                                 const std::string& report)
 {
-    return _impl->importCircuit(uri.getPath(), callback, targets, report);
+    try
+    {
+        return _impl->importCircuit(uri.getPath(), callback, targets, report);
+    }
+    catch (const std::exception& error)
+    {
+        BRAYNS_ERROR << "Failed to open " << uri.getPath() << ": "
+                     << error.what() << std::endl;
+        return {};
+    }
 }
 }

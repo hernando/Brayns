@@ -28,6 +28,7 @@
 #include <brayns/pluginapi/PluginAPI.h>
 
 const std::string ENDPOINT_MORPHOLOGY_PARAMS = "morphology-parameters";
+const std::string ENDPOINT_CIRCUIT_PARAMS = "circuit-parameters";
 
 namespace brayns
 {
@@ -38,9 +39,8 @@ void CircuitViewer::init(PluginAPI* api)
     auto& geometryParameters = parametersManager.getGeometryParameters();
     auto& registry = scene.getLoaderRegistry();
 
-    registry.registerLoader(
-        std::make_unique<CircuitLoader>(scene, parametersManager,
-                                        _morphologyParameters));
+    registry.registerLoader(std::make_unique<CircuitLoader>(
+        scene, parametersManager, _circuitParameters, _morphologyParameters));
     registry.registerLoader(
         std::make_unique<MorphologyLoader>(scene, _morphologyParameters,
                                            geometryParameters));
@@ -48,12 +48,14 @@ void CircuitViewer::init(PluginAPI* api)
 #ifdef BRAYNS_USE_NETWORKING
     if (auto actionInterface = api->getActionInterface())
     {
+        (void)actionInterface;
     }
 #endif
 }
 
 void CircuitViewer::getOptions(ParametersManager& parametersManager)
 {
+    parametersManager.registerParameters(&_circuitParameters);
     parametersManager.registerParameters(&_morphologyParameters);
 }
 }

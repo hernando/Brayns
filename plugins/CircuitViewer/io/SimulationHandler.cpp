@@ -19,11 +19,12 @@
  */
 
 #include "SimulationHandler.h"
+#include "../CircuitParameters.h"
 
 #include <brayns/common/log.h>
 #include <brayns/common/material/Material.h>
 #include <brayns/parameters/ApplicationParameters.h>
-#include <brayns/parameters/GeometryParameters.h>
+
 
 #include <servus/types.h>
 
@@ -31,10 +32,9 @@ namespace brayns
 {
 SimulationHandler::SimulationHandler(
     const ApplicationParameters& applicationParameters,
-    const GeometryParameters& geometryParameters,
+    const CircuitParameters& circuitParameters,
     const brion::URI& reportSource, const brion::GIDSet& gids)
-    : AbstractSimulationHandler(geometryParameters)
-    , _applicationParameters(applicationParameters)
+    : _applicationParameters(applicationParameters)
     , _compartmentReport(
           new brion::CompartmentReport(reportSource, brion::MODE_READ, gids))
 {
@@ -44,11 +44,10 @@ SimulationHandler::SimulationHandler(
     const auto reportTimeStep = _compartmentReport->getTimestep();
 
     _startTime = std::max(reportStartTime,
-                          _geometryParameters.getCircuitStartSimulationTime());
+                          circuitParameters.getStartSimulationTime());
     _endTime = std::min(reportEndTime,
-                        _geometryParameters.getCircuitEndSimulationTime());
-    _dt = std::max(reportTimeStep,
-                   _geometryParameters.getCircuitSimulationStep());
+                        circuitParameters.getEndSimulationTime());
+    _dt = std::max(reportTimeStep, circuitParameters.getSimulationStep());
     _unit = _compartmentReport->getTimeUnit();
     _frameSize = _compartmentReport->getFrameSize();
     _nbFrames = (_endTime - _startTime) / _dt;

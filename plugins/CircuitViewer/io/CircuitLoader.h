@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, EPFL/Blue Brain Project
+/* Copyright (c) 2015-2018, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
  * Responsible Author: Cyrille Favreau <cyrille.favreau@epfl.ch>
  *
@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "../CircuitParameters.h"
 #include "../MorphologyParameters.h"
 
 #include <brayns/common/loader/Loader.h>
@@ -43,6 +44,7 @@ class CircuitLoader : public Loader
 public:
     CircuitLoader(Scene& scene,
                   const ParametersManager& parameters,
+                  const CircuitParameters& circuitParameters,
                   const MorphologyParameters& morphologyParameters);
     ~CircuitLoader();
 

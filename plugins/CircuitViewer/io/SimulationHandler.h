@@ -21,6 +21,8 @@
 #ifndef CIRCUITSIMULATIONHANDLER_H
 #define CIRCUITSIMULATIONHANDLER_H
 
+#include "../CircuitParameters.h"
+
 #include <brayns/api.h>
 #include <brayns/common/scene/Scene.h>
 #include <brayns/common/simulation/AbstractSimulationHandler.h>
@@ -47,9 +49,9 @@ public:
      * @param gids GIDS to load
      */
     SimulationHandler(const ApplicationParameters& applicationParameters,
-                             const GeometryParameters& geometryParameters,
-                             const brion::URI& reportSource,
-                             const brion::GIDSet& gids);
+                      const CircuitParameters& circuitParameters,
+                      const brion::URI& reportSource,
+                      const brion::GIDSet& gids);
     ~SimulationHandler();
 
     void bind(const MaterialPtr& material) final;

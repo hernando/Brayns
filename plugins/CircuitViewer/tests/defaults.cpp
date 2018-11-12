@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, EPFL/Blue Brain Project
+/* Copyright (c) 2016-2018, EPFL/Blue Brain Project
  * All rights reserved. Do not distribute without permission.
  * Responsible Author: Juan Hernando juan.hernando@epfl.ch
  *
@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "../CircuitParameters.h"
 #include "../MorphologyParameters.h"
 
 #define BOOST_TEST_MODULE brayns
@@ -32,4 +33,19 @@ BOOST_AUTO_TEST_CASE(morphologyDefaults)
         size_t(brayns::MorphologyParameters::SectionType::all));
     BOOST_CHECK_EQUAL(parameters.getLayout().nbColumns, 0);
     BOOST_CHECK_EQUAL(parameters.useSDF(), false);
+}
+
+
+BOOST_AUTO_TEST_CASE(circuitDefaults)
+{
+    brayns::CircuitParameters parameters;
+    BOOST_CHECK_EQUAL(parameters.getTargets(), "");
+    BOOST_CHECK_EQUAL(parameters.getReport(), "");
+    BOOST_CHECK_EQUAL(parameters.getStartSimulationTime(), 0.f);
+    BOOST_CHECK_EQUAL(parameters.getEndSimulationTime(),
+                      std::numeric_limits<float>::max());
+    BOOST_CHECK_EQUAL(parameters.getSimulationValuesRange().x(),
+                      std::numeric_limits<double>::max());
+    BOOST_CHECK_EQUAL(parameters.getSimulationValuesRange().y(),
+                      std::numeric_limits<double>::min());
 }

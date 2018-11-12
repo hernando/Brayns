@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "CircuitParameters.h"
 #include "MorphologyParameters.h"
 
 #include <brayns/common/types.h>
@@ -36,5 +37,6 @@ public:
 
 private:
     MorphologyParameters _morphologyParameters;
+    CircuitParameters _circuitParameters;
 };
 }

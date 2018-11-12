@@ -21,18 +21,17 @@
 #include "AbstractSimulationHandler.h"
 
 #include <brayns/common/log.h>
-#include <brayns/parameters/GeometryParameters.h>
 
 #include <fcntl.h>
 #include <fstream>
+
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 namespace brayns
 {
-AbstractSimulationHandler::AbstractSimulationHandler(
-    const GeometryParameters& geometryParameters)
-    : _geometryParameters(geometryParameters)
+AbstractSimulationHandler::AbstractSimulationHandler()
 {
 }
 

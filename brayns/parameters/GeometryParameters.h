@@ -29,23 +29,6 @@ SERIALIZATION_ACCESS(GeometryParameters)
 
 namespace brayns
 {
-struct CircuitConfiguration
-{
-    Boxd boundingBox{{0, 0, 0}, {0, 0, 0}};
-    float density{100};
-    std::string meshFilenamePattern;
-    std::string meshFolder;
-    std::string targets;
-    std::string report;
-    double startSimulationTime{0};
-    double endSimulationTime{std::numeric_limits<float>::max()};
-    double simulationStep{0};
-    Vector2d simulationValuesRange{std::numeric_limits<double>::max(),
-                                   std::numeric_limits<double>::min()};
-    size_t randomSeed = 0;
-    bool meshTransformation{false};
-};
-
 /** Manages geometry parameters
  */
 class GeometryParameters : public AbstractParameters
@@ -63,49 +46,7 @@ public:
     const std::string& getLoadCacheFile() const { return _loadCacheFile; }
     /** Binary representation of a scene to save */
     const std::string& getSaveCacheFile() const { return _saveCacheFile; }
-    /** Circuit targets */
-    const std::string& getCircuitTargets() const
-    {
-        return _circuitConfiguration.targets;
-    }
-    strings getCircuitTargetsAsStrings() const;
-    /** Circuit compartment report */
-    const std::string& getCircuitReport() const
-    {
-        return _circuitConfiguration.report;
-    }
-    /** Defines the folder where morphologies meshes are stored. Meshes must
-     * have the same name as the h5/SWC morphology file, suffixed with an
-     * extension supported by the assimp library
-     */
-    const std::string& getCircuitMeshFolder() const
-    {
-        return _circuitConfiguration.meshFolder;
-    }
-    /** ensity of cells in the circuit in percent (Mainly for testing
-     * purposes) */
-    float getCircuitDensity() const;
 
-    /**
-     * Defines a bounding box outside of which geometry of a circuit will not be
-     * loaded
-     */
-    const Boxd& getCircuitBoundingBox() const
-    {
-        return _circuitConfiguration.boundingBox;
-    }
-    void setCircuitBoundingBox(const Boxd& value)
-    {
-        _updateValue(_circuitConfiguration.boundingBox, value);
-    }
-
-    /**
-     * Return the filename pattern use to load meshes
-     */
-    const std::string& getCircuitMeshFilenamePattern() const
-    {
-        return _circuitConfiguration.meshFilenamePattern;
-    }
     /** Radius multiplier applied to spheres, cones and cylinders.
      * @param value Radius multiplier. Multiplies the radius contained in the
      *        data source by the specified value.
@@ -131,35 +72,6 @@ public:
     const std::string& getGeometryQualityAsString(
         const GeometryQuality value) const;
 
-    /** Defines the range of frames to be loaded for the simulation */
-    double getCircuitEndSimulationTime() const
-    {
-        return _circuitConfiguration.endSimulationTime;
-    }
-    double getCircuitStartSimulationTime() const
-    {
-        return _circuitConfiguration.startSimulationTime;
-    }
-    double getCircuitSimulationStep() const
-    {
-        return _circuitConfiguration.simulationStep;
-    }
-    Vector2d getCircuitSimulationValuesRange() const
-    {
-        return _circuitConfiguration.simulationValuesRange;
-    }
-
-    size_t getCircuitMeshTransformation() const
-    {
-        return _circuitConfiguration.meshTransformation;
-    }
-
-    /** Random seed of the circuit */
-    size_t getCircuitRandomSeed() const
-    {
-        return _circuitConfiguration.randomSeed;
-    }
-
     /**
      * Defines what memory mode should be used between Brayns and the
      * underlying renderer
@@ -173,9 +85,6 @@ public:
 
 protected:
     void parse(const po::variables_map& vm) final;
-
-    // Circuit
-    CircuitConfiguration _circuitConfiguration;
 
     // Scene
     std::string _loadCacheFile;

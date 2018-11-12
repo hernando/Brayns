@@ -53,15 +53,6 @@ public:
         Blob&& blob, const LoaderProgress& callback, const size_t index = 0,
         const size_t defaultMaterial = NO_MATERIAL) const final;
 
-    /**
-     * @brief getMeshFilenameFromGID Returns the name of the mesh file according
-     * to the --circuit-mesh-folder, --circuit-mesh-filename-pattern command
-     * line arguments and a GID
-     * @param gid GID of the cell
-     * @return A string with the full path of the mesh file
-     */
-    std::string getMeshFilenameFromGID(const uint64_t gid) const;
-
     void importMesh(const std::string& fileName, const LoaderProgress& callback,
                     Model& model, const size_t index,
                     const Matrix4f& transformation,
