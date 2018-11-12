@@ -20,7 +20,15 @@
 
 #pragma once
 
+#include <brayns/common/types.h>
 #include <brayns/parameters/AbstractParameters.h>
+
+namespace brayns
+{
+class MorphologyParameters;
+}
+
+SERIALIZATION_ACCESS(MorphologyParameters)
 
 namespace brayns
 {
@@ -138,5 +146,7 @@ private:
     bool _dampenBranchThicknessChangerate{false};
 
     bool _useSimulationModel{true};
+
+    SERIALIZATION_FRIEND(MorphologyParameters)
 };
 }
