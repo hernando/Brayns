@@ -49,15 +49,12 @@ struct MorphologyLoaderParams
     ColorScheme colorScheme = ColorScheme::none;
     double radiusMultiplier = 0.0;
     double radiusCorrection = 0.0;
-    std::vector<MorphologySectionType> morphologySectionTypes;
+    std::vector<MorphologySectionType> sectionTypes;
     bool useRealisticSomas = false;
-    int32_t metaballsSamplesFromSoma = 0;
-    int32_t metaballsGridSize = 0;
-    double metaballsThreshold = 0.0;
-    bool circuitUseSimulationModel = false;
-    bool morphologyDampenBranchThicknessChangerate = false;
-    bool morphologyUseSDFGeometries = false;
-    MorphologyLayout morphologyLayout{};
+    bool useSimulationModel = false;
+    bool dampenBranchThicknessChangerate = false;
+    bool useSDFGeometries = false;
+    MorphologyLayout layout{};
     GeometryQuality geometryQuality = GeometryQuality::high;
 };
 

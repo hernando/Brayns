@@ -57,7 +57,7 @@ struct CircuitConfiguration
     Vector2d simulationValuesRange{std::numeric_limits<double>::max(),
                                    std::numeric_limits<double>::min()};
     size_t randomSeed = 0;
-    bool meshTransformation{false};
+    bool transformMeshes{false};
 };
 
 /** Manages geometry parameters
@@ -196,9 +196,9 @@ public:
         return _circuitConfiguration.simulationValuesRange;
     }
 
-    size_t getCircuitMeshTransformation() const
+    bool getCircuitTransformMeshes() const
     {
-        return _circuitConfiguration.meshTransformation;
+        return _circuitConfiguration.transformMeshes;
     }
 
     /** Random seed of the circuit */
@@ -207,18 +207,6 @@ public:
         return _circuitConfiguration.randomSeed;
     }
 
-    /** Metaballs grid size */
-    size_t getMetaballsGridSize() const { return _metaballsGridSize; }
-    /** Metaballs threshold */
-    float getMetaballsThreshold() const { return _metaballsThreshold; }
-    /** Metaballs samples from soma */
-    size_t getMetaballsSamplesFromSoma() const
-    {
-        return _metaballsSamplesFromSoma;
-    }
-
-    /** Realistic somas enabled? */
-    bool useRealisticSomas() const { return _metaballsGridSize != 0; }
     /**
      * Defines what memory mode should be used between Brayns and the
      * underlying renderer

@@ -395,7 +395,7 @@ inline void init(brayns::CircuitConfiguration* c, ObjectHandler* h)
     h->add_property("mesh_filename_pattern", &c->meshFilenamePattern,
                     Flags::Optional);
     h->add_property("mesh_folder", &c->meshFolder, Flags::Optional);
-    h->add_property("mesh_transformation", &c->meshTransformation,
+    h->add_property("transform_meshes", &c->transformMeshes,
                     Flags::Optional);
     h->add_property("use_simulation_model", &c->useSimulationModel,
                     Flags::Optional);
@@ -448,12 +448,6 @@ inline void init(brayns::GeometryParameters* g, ObjectHandler* h)
                     Flags::Optional);
     h->add_property("morphology_layout", &g->_morphologyLayout,
                     Flags::Optional);
-    h->add_property("metaballs_grid_size", &g->_metaballsGridSize,
-                    Flags::Optional);
-    h->add_property("metaballs_threshold", &g->_metaballsThreshold,
-                    Flags::Optional);
-    h->add_property("metaballs_samples_from_soma",
-                    &g->_metaballsSamplesFromSoma, Flags::Optional);
     h->add_property("memory_mode", &g->_memoryMode, Flags::Optional);
     h->add_property("circuit_configuration", &g->_circuitConfiguration,
                     Flags::Optional);
