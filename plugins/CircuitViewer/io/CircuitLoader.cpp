@@ -30,7 +30,6 @@
 #include <brayns/parameters/ApplicationParameters.h>
 
 #include <brain/brain.h>
-#include <brion/brion.h>
 
 #if BRAYNS_USE_ASSIMP
 #include <brayns/io/MeshLoader.h>
@@ -102,6 +101,52 @@ std::string _getMeshFilenameFromGID(const uint64_t gid,
     else
         filenamePattern = gidAsString;
     return folder + "/" + filenamePattern;
+}
+
+/**
+ * Return a vector of gids.size() elements with the layer index of each gid
+ */
+size_ts _getLayerIds(const brain::Circuit& circuit, const brain::GIDSet& gids)
+{
+    std::vector<brion::GIDSet> layers;
+    try
+    {
+        for (auto layer : {"1", "2", "3", "4", "5", "6"})
+            layers.push_back(circuit.getGIDs(std::string("Layer") + layer));
+    }
+    catch (...)
+    {
+        BRAYNS_ERROR << "Not all layer targets were found for neuron_by_layer"
+                        " color scheme"
+                     << std::endl;
+    }
+
+    std::vector<brion::GIDSet::const_iterator> iters;
+    for (const auto& layer : layers)
+        iters.push_back(layer.begin());
+
+    size_ts materialIds;
+    materialIds.reserve(gids.size());
+    // For each GID find in which layer GID list it appears, assign
+    // this index to its material id list.
+    for (auto gid : gids)
+    {
+        size_t i = 0;
+        for (i = 0; i != layers.size(); ++i)
+        {
+            while (iters[i] != layers[i].end() && *iters[i] < gid)
+                ++iters[i];
+            if (iters[i] != layers[i].end() && *iters[i] == gid)
+            {
+                materialIds.push_back(i);
+                break;
+            }
+        }
+        if (i == layers.size())
+            throw std::runtime_error("Layer Id not found for GID " +
+                                     std::to_string(gid));
+    }
+    return materialIds;
 }
 
 struct CircuitProperties
@@ -182,13 +227,12 @@ struct CircuitProperties
     Boxd boundingBox;
 };
 
-brain::GIDSet _getFilteredGIDs(const brain::Circuit& circuit,
-                               const std::string& target,
-                               const CircuitProperties& properties)
+brain::GIDSet _getFilteredGIDs(
+    const std::function<brion::GIDSet(const std::string&)>& resolver,
+    const brain::Circuit& circuit, const std::string& target,
+    const CircuitProperties& properties)
 {
-    const auto allGIDs = circuit.getRandomGIDs(properties.density / 100.0,
-                                               target, properties.randomSeed);
-
+    const auto allGIDs = resolver(target);
     const auto& aabb = properties.boundingBox;
     if (aabb.getSize() == Vector3f(0.f))
         return allGIDs;
@@ -202,22 +246,17 @@ brain::GIDSet _getFilteredGIDs(const brain::Circuit& circuit,
     return gids;
 }
 
-CompartmentReportPtr _openCompartmentReport(const brion::BlueConfig& blueConfig,
+CompartmentReportPtr _openCompartmentReport(const brain::Simulation* simulation,
                                             const std::string& name,
                                             const brion::GIDSet& gids)
 {
+    if (!simulation || name.empty())
+        return {};
     try
     {
-        auto source = blueConfig.getReportSource(name);
-        if (source.getPath().empty())
-        {
-            BRAYNS_ERROR << "Compartment report not found: " << name
-                         << std::endl;
-            return {};
-
-        }
-        return std::make_shared<brion::CompartmentReport>(
-            source, brion::MODE_READ, gids);
+        auto report = simulation->openCompartmentReport(name);
+        return std::make_shared<brain::CompartmentReportView>(
+            report.createView(gids));
     }
     catch (const std::exception& e)
     {
@@ -261,23 +300,42 @@ public:
                                   {"mesh-folder", _properties.meshFolder}};
         auto model = _scene.createModel();
 
-        // Open Circuit and select GIDs according to specified target
-        const brion::BlueConfig bc(source);
-        const brain::Circuit circuit(bc);
+        // Open circuit and simulation if possible
+        brion::URI uri(source);
+        std::unique_ptr<brain::Simulation> simulation;
+        try
+        {
+            simulation = std::make_unique<brain::Simulation>(uri);
+        }
+        catch (std::runtime_error& error)
+        {
+            BRAYNS_INFO << "Cannot open " + source + " as simulation config: "
+                        << error.what() << std::endl;
+        }
+        const auto circuit =
+            simulation ? simulation->openCircuit() : brain::Circuit(uri);
 
         brain::GIDSet allGids;
         GIDOffsets targetGIDOffsets;
         targetGIDOffsets.push_back(0);
 
-        strings localTargets;
-        if (_properties.targetList.empty())
-            localTargets.push_back(bc.getCircuitTarget());
-        else
-            localTargets = _properties.targetList;
+        const strings localTargets = _properties.targetList.empty()
+                                         ? strings{{""}}
+                                         : _properties.targetList;
+
+        auto resolver = [&](const std::string& name) {
+            const float fraction = _properties.density / 100.0f;
+            if (simulation)
+                return simulation->getGIDs(name, fraction,
+                                           _properties.randomSeed);
+            return circuit.getRandomGIDs(fraction, name,
+                                         _properties.randomSeed);
+        };
 
         for (const auto& target : localTargets)
         {
-            const auto gids = _getFilteredGIDs(circuit, target, _properties);
+            const auto gids =
+                _getFilteredGIDs(resolver, circuit, target, _properties);
             if (gids.empty())
             {
                 BRAYNS_ERROR << "Target " << target
@@ -295,22 +353,28 @@ public:
             return {};
 
         auto compartmentReport =
-            _openCompartmentReport(bc, _properties.report, allGids);
+            _openCompartmentReport(simulation.get(), _properties.report,
+                                   allGids);
+        const brain::CompartmentReportMapping* reportMapping = nullptr;
         if (compartmentReport)
         {
             model->setSimulationHandler(
                 _createSimulationHandler(compartmentReport, _properties));
             // Only keep GIDs from the report
             allGids = compartmentReport->getGIDs();
+            reportMapping = &compartmentReport->getMapping();
         }
 
         const Matrix4fs& transformations = circuit.getTransforms(allGids);
         _logLoadedGIDs(allGids);
 
-        const auto layerIds = _populateLayerIds(bc, allGids);
-        const auto& electrophysiologyTypes =
+        const auto layerIds =
+            _properties.colorScheme == ColorScheme::neuron_by_layer
+                ? _getLayerIds(circuit, allGids)
+                : size_ts();
+        const auto electrophysiologyTypes =
             circuit.getElectrophysiologyTypes(allGids);
-        const auto& morphologyTypes = circuit.getMorphologyTypes(allGids);
+        const auto morphologyTypes = circuit.getMorphologyTypes(allGids);
 
         // Import meshes
         _importMeshes(callback, *model, allGids, transformations,
@@ -325,7 +389,7 @@ public:
             MorphologyLoader morphLoader(_scene);
             if (!_importMorphologies(circuit, callback, *model, allGids,
                                      transformations, targetGIDOffsets,
-                                     compartmentReport, morphLoader, layerIds,
+                                     reportMapping, morphLoader, layerIds,
                                      morphologyTypes, electrophysiologyTypes))
                 return {};
         }
@@ -432,34 +496,6 @@ private:
     }
 
     /**
-     * @brief _populateLayerIds populates the neuron layer IDs. This is
-     * currently only supported for the MVD2 format.
-     * @param blueConfig Configuration of the circuit
-     * @param gids GIDs of the neurons
-     */
-    size_ts _populateLayerIds(const brion::BlueConfig& blueConfig,
-                              const brain::GIDSet& gids) const
-    {
-        size_ts layerIds;
-        try
-        {
-            brion::Circuit brionCircuit(blueConfig.getCircuitSource());
-            for (const auto& a : brionCircuit.get(gids, brion::NEURON_LAYER))
-                layerIds.push_back(std::stoi(a[0]));
-        }
-        catch (...)
-        {
-            if (_properties.colorScheme == ColorScheme::neuron_by_layer)
-                BRAYNS_ERROR
-                    << "Only MVD2 format is currently supported by Brion "
-                       "circuits. Color scheme by layer not available for "
-                       "this circuit"
-                    << std::endl;
-        }
-        return layerIds;
-    }
-
-    /**
      * @brief _logLoadedGIDs Logs selected GIDs for debugging purpose
      * @param gids to trace
      */
@@ -535,8 +571,9 @@ private:
         const brain::Circuit& circuit, const LoaderProgress& callback,
         Model& model, const brain::GIDSet& gids,
         const Matrix4fs& transformations, const GIDOffsets& targetGIDOffsets,
-        CompartmentReportPtr compartmentReport, MorphologyLoader& morphLoader,
-        const size_ts& layerIds, const size_ts& morphologyTypes,
+        const brain::CompartmentReportMapping* reportMapping,
+        MorphologyLoader& morphLoader, const size_ts& layerIds,
+        const size_ts& morphologyTypes,
         const size_ts& electrophysiologyTypes) const
     {
         const brain::URIs& uris = circuit.getMorphologyURIs(gids);
@@ -571,7 +608,7 @@ private:
 
                     if (!morphLoader._importMorphology(
                             uri, morphologyIndex, materialFunc,
-                            transformations[morphologyIndex], compartmentReport,
+                            transformations[morphologyIndex], reportMapping,
                             modelContainer, _morphologyParams))
 #pragma omp atomic
                         ++loadingFailures;
@@ -634,7 +671,7 @@ bool CircuitLoader::isSupported(const std::string& filename,
     };
 
     const std::set<std::string> names = {"BlueConfig", "BlueConfig3",
-                                         "CircuitConfig", "circuit"};
+                                         "CircuitConfig", ".json", "circuit"};
 
     for (const auto& name : names)
         if (ends_with(filename, name))
@@ -672,7 +709,7 @@ ModelDescriptorPtr CircuitLoader::importFromFile(
 LoaderSupport CircuitLoader::getLoaderSupport() const
 {
     return {LOADER_NAME,
-            {"BlueConfig", "BlueConfig3", "CircuitConfig", "circuit"}};
+            {"BlueConfig", "BlueConfig3", "CircuitConfig", ".json", "circuit"}};
 }
 std::pair<std::string, PropertyMap> CircuitLoader::getLoaderProperties() const
 {

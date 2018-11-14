@@ -21,15 +21,15 @@
 #ifndef CIRCUITSIMULATIONHANDLER_H
 #define CIRCUITSIMULATIONHANDLER_H
 
+#include <brain/compartmentReportView.h>
 #include <brayns/api.h>
 #include <brayns/common/scene/Scene.h>
 #include <brayns/common/simulation/AbstractSimulationHandler.h>
 #include <brayns/common/types.h>
-#include <brion/brion.h>
 
 namespace brayns
 {
-using CompartmentReportPtr = std::shared_ptr<brion::CompartmentReport>;
+using CompartmentReportPtr = std::shared_ptr<brain::CompartmentReportView>;
 
 /**
  * @brief The SimulationHandler class handles simulation frames for the
@@ -68,7 +68,7 @@ private:
     CompartmentReportPtr _compartmentReport;
     double _startTime;
     double _endTime;
-    std::future<brion::floatsPtr> _currentFrameFuture;
+    std::future<brion::Frame> _currentFrameFuture;
     bool _ready{false};
     std::vector<MaterialPtr> _materials;
     bool _synchronousMode{false};
