@@ -198,11 +198,7 @@ public:
         somaPosition =
             importMorphology(source, index, materialFunc, transformation,
                              reportMapping, modelContainer);
-
-        modelContainer.addSpheresToModel(model);
-        modelContainer.addCylindersToModel(model);
-        modelContainer.addConesToModel(model);
-        modelContainer.addSDFGeometriesToModel(model);
+        modelContainer.dump(model);
 
         model.createMissingMaterials();
         return somaPosition;

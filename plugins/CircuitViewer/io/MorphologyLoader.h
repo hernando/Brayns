@@ -40,7 +40,6 @@ namespace brayns
 {
 class CircuitLoader;
 struct ParallelModelContainer;
-using GIDOffsets = std::vector<uint64_t>;
 
 struct MorphologyLoaderParams
 {

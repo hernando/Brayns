@@ -104,6 +104,101 @@ std::string _getMeshFilenameFromGID(const uint64_t gid,
     return folder + "/" + filenamePattern;
 }
 
+/**
+ * Return a vector of gids.size() elements with the layer index of each gid
+ */
+size_ts _getLayerIds(const brain::Circuit& circuit, const brain::GIDSet& gids)
+{
+    std::vector<brion::GIDSet> layers;
+    try
+    {
+        for (auto layer : {"1", "2", "3", "4", "5", "6"})
+            layers.push_back(circuit.getGIDs(std::string("Layer") + layer));
+    }
+    catch (...)
+    {
+        BRAYNS_ERROR << "Not all layer targets were found for neuron_by_layer"
+                        " color scheme"
+                     << std::endl;
+    }
+
+    std::vector<brion::GIDSet::const_iterator> iters;
+    for (const auto& layer : layers)
+        iters.push_back(layer.begin());
+
+    size_ts materialIds;
+    materialIds.reserve(gids.size());
+    // For each GID find in which layer GID list it appears, assign
+    // this index to its material id list.
+    for (auto gid : gids)
+    {
+        size_t i = 0;
+        for (i = 0; i != layers.size(); ++i)
+        {
+            while (iters[i] != layers[i].end() && *iters[i] < gid)
+                ++iters[i];
+            if (iters[i] != layers[i].end() && *iters[i] == gid)
+            {
+                materialIds.push_back(i);
+                break;
+            }
+        }
+        if (i == layers.size())
+            throw std::runtime_error("Layer Id not found for GID " +
+                                     std::to_string(gid));
+    }
+    return materialIds;
+}
+
+size_t _getMaterialId(const ColorScheme colorScheme, const uint64_t index,
+                      const brain::neuron::SectionType sectionType,
+                      const size_ts& perCellMaterialIds)
+{
+    size_t materialId = 0;
+    switch (colorScheme)
+    {
+    case ColorScheme::neuron_by_id:
+        materialId = index;
+        break;
+    case ColorScheme::neuron_by_segment_type:
+        switch (sectionType)
+        {
+        case brain::neuron::SectionType::soma:
+            materialId = 1;
+            break;
+        case brain::neuron::SectionType::axon:
+            materialId = 2;
+            break;
+        case brain::neuron::SectionType::dendrite:
+            materialId = 3;
+            break;
+        case brain::neuron::SectionType::apicalDendrite:
+            materialId = 4;
+            break;
+        default:
+            materialId = 0;
+            break;
+        }
+        break;
+    case ColorScheme::neuron_by_target: // no break
+    case ColorScheme::neuron_by_etype:  // no break
+    case ColorScheme::neuron_by_mtype:  // no break
+    case ColorScheme::neuron_by_layer:  // no break
+        if (index < perCellMaterialIds.size())
+            materialId = perCellMaterialIds[index];
+        else
+        {
+            materialId = NO_MATERIAL;
+            BRAYNS_DEBUG << "Failed to get per cell material index"
+                         << std::endl;
+        }
+        break;
+    default:
+        materialId = NO_MATERIAL;
+    }
+    return materialId;
+}
+
 struct CircuitProperties
 {
     CircuitProperties() = default;
@@ -263,8 +358,7 @@ public:
         const brain::Circuit circuit(bc);
 
         brain::GIDSet allGids;
-        GIDOffsets targetGIDOffsets;
-        targetGIDOffsets.push_back(0);
+        size_ts targetSizes;
 
         strings localTargets;
         if (_properties.targetList.empty())
@@ -285,7 +379,7 @@ public:
             BRAYNS_INFO << "Target " << target << ": " << gids.size()
                         << " cells" << std::endl;
             allGids.insert(gids.begin(), gids.end());
-            targetGIDOffsets.push_back(allGids.size());
+            targetSizes.push_back(gids.size());
         }
 
         if (allGids.empty())
@@ -304,15 +398,12 @@ public:
         const Matrix4fs& transformations = circuit.getTransforms(allGids);
         _logLoadedGIDs(allGids);
 
-        const auto layerIds = _populateLayerIds(bc, allGids);
-        const auto& electrophysiologyTypes =
-            circuit.getElectrophysiologyTypes(allGids);
-        const auto& morphologyTypes = circuit.getMorphologyTypes(allGids);
+        const auto perCellMaterialIds =
+            _createPerCellMaterialIds(circuit, allGids, targetSizes);
 
         // Import meshes
         _importMeshes(callback, *model, allGids, transformations,
-                      targetGIDOffsets, layerIds, morphologyTypes,
-                      electrophysiologyTypes);
+                      perCellMaterialIds);
 
         // Import morphologies
         const auto useSimulationModel = _properties.useSimulationModel;
@@ -321,9 +412,8 @@ public:
         {
             MorphologyLoader morphLoader(_scene);
             if (!_importMorphologies(circuit, callback, *model, allGids,
-                                     transformations, targetGIDOffsets,
-                                     compartmentReport, morphLoader, layerIds,
-                                     morphologyTypes, electrophysiologyTypes))
+                                     transformations, reportMapping,
+                                     morphLoader, perCellMaterialIds))
                 return {};
         }
 
@@ -347,116 +437,6 @@ public:
 
 private:
     /**
-     * @brief _getMaterialFromSectionType return a material determined by the
-     * --color-scheme geometry parameter
-     * @param index Index of the element to which the material will attached
-     * @param material Material that is forced in case geometry parameters
-     * do not apply
-     * @param sectionType Section type of the geometry to which the material
-     * will be applied
-     * @return Material ID determined by the geometry parameters
-     */
-    size_t _getMaterialFromGeometryParameters(
-        const uint64_t index, const size_t material,
-        const brain::neuron::SectionType sectionType,
-        const GIDOffsets& targetGIDOffsets, const size_ts& layerIds,
-        const size_ts& morphologyTypes, const size_ts& electrophysiologyTypes,
-        bool isMesh) const
-    {
-        if (material != NO_MATERIAL)
-            return material;
-
-        if (!isMesh && _properties.useSimulationModel)
-            return 0;
-
-        size_t materialId = 0;
-        switch (_properties.colorScheme)
-        {
-        case ColorScheme::neuron_by_id:
-            materialId = index;
-            break;
-        case ColorScheme::neuron_by_segment_type:
-            switch (sectionType)
-            {
-            case brain::neuron::SectionType::soma:
-                materialId = 1;
-                break;
-            case brain::neuron::SectionType::axon:
-                materialId = 2;
-                break;
-            case brain::neuron::SectionType::dendrite:
-                materialId = 3;
-                break;
-            case brain::neuron::SectionType::apicalDendrite:
-                materialId = 4;
-                break;
-            default:
-                materialId = 0;
-                break;
-            }
-            break;
-        case ColorScheme::neuron_by_target:
-            for (size_t i = 0; i < targetGIDOffsets.size() - 1; ++i)
-                if (index >= targetGIDOffsets[i] &&
-                    index < targetGIDOffsets[i + 1])
-                {
-                    materialId = i;
-                    break;
-                }
-            break;
-        case ColorScheme::neuron_by_etype:
-            if (index < electrophysiologyTypes.size())
-                materialId = electrophysiologyTypes[index];
-            else
-                BRAYNS_DEBUG << "Failed to get neuron E-type" << std::endl;
-            break;
-        case ColorScheme::neuron_by_mtype:
-            if (index < morphologyTypes.size())
-                materialId = morphologyTypes[index];
-            else
-                BRAYNS_DEBUG << "Failed to get neuron M-type" << std::endl;
-            break;
-        case ColorScheme::neuron_by_layer:
-            if (index < layerIds.size())
-                materialId = layerIds[index];
-            else
-                BRAYNS_DEBUG << "Failed to get neuron layer" << std::endl;
-            break;
-        default:
-            materialId = NO_MATERIAL;
-        }
-        return materialId;
-    }
-
-    /**
-     * @brief _populateLayerIds populates the neuron layer IDs. This is
-     * currently only supported for the MVD2 format.
-     * @param blueConfig Configuration of the circuit
-     * @param gids GIDs of the neurons
-     */
-    size_ts _populateLayerIds(const brion::BlueConfig& blueConfig,
-                              const brain::GIDSet& gids) const
-    {
-        size_ts layerIds;
-        try
-        {
-            brion::Circuit brionCircuit(blueConfig.getCircuitSource());
-            for (const auto& a : brionCircuit.get(gids, brion::NEURON_LAYER))
-                layerIds.push_back(std::stoi(a[0]));
-        }
-        catch (...)
-        {
-            if (_properties.colorScheme == ColorScheme::neuron_by_layer)
-                BRAYNS_ERROR
-                    << "Only MVD2 format is currently supported by Brion "
-                       "circuits. Color scheme by layer not available for "
-                       "this circuit"
-                    << std::endl;
-        }
-        return layerIds;
-    }
-
-    /**
      * @brief _logLoadedGIDs Logs selected GIDs for debugging purpose
      * @param gids to trace
      */
@@ -468,14 +448,37 @@ private:
         BRAYNS_DEBUG << "Loaded GIDs: " << gidsStr.str() << std::endl;
     }
 
-    void _importMeshes(
-        const LoaderProgress& callback BRAYNS_UNUSED,
-        Model& model BRAYNS_UNUSED, const brain::GIDSet& gids BRAYNS_UNUSED,
-        const Matrix4fs& transformations BRAYNS_UNUSED,
-        const GIDOffsets& targetGIDOffsets BRAYNS_UNUSED,
-        const size_ts& layerIds BRAYNS_UNUSED,
-        const size_ts& morphologyTypes BRAYNS_UNUSED,
-        const size_ts& electrophysiologyTypes BRAYNS_UNUSED) const
+    size_ts _createPerCellMaterialIds(const brain::Circuit& circuit,
+                                      const brain::GIDSet& gids,
+                                      const size_ts& targetSizes) const
+    {
+        switch (_properties.colorScheme)
+        {
+        case ColorScheme::neuron_by_target:
+        {
+            size_ts ids;
+            ids.reserve(gids.size());
+            size_t id = 0;
+            for (const auto size : targetSizes)
+                std::fill_n(std::back_inserter(ids), size, id);
+            return ids;
+        }
+        case ColorScheme::neuron_by_etype:
+            return circuit.getElectrophysiologyTypes(gids);
+        case ColorScheme::neuron_by_mtype:
+            return circuit.getMorphologyTypes(gids);
+        case ColorScheme::neuron_by_layer:
+            return _getLayerIds(circuit, gids);
+        default:
+            return size_ts();
+        }
+    }
+
+    void _importMeshes(const LoaderProgress& callback BRAYNS_UNUSED,
+                       Model& model BRAYNS_UNUSED,
+                       const brain::GIDSet& gids BRAYNS_UNUSED,
+                       const Matrix4fs& transformations BRAYNS_UNUSED,
+                       const size_ts& perCellMaterialIds BRAYNS_UNUSED) const
     {
 #if BRAYNS_USE_ASSIMP
         const auto colorScheme = _properties.colorScheme;
@@ -492,21 +495,23 @@ private:
         message << "Loading " << gids.size() << " meshes...";
         for (const auto& gid : gids)
         {
-            const size_t materialId = _getMaterialFromGeometryParameters(
-                meshIndex, NO_MATERIAL, brain::neuron::SectionType::undefined,
-                targetGIDOffsets, layerIds, morphologyTypes,
-                electrophysiologyTypes, true);
+            size_t materialId = 0;
+            if (colorScheme == ColorScheme::neuron_by_id)
+                materialId = meshIndex;
+            else if (colorScheme != ColorScheme::neuron_by_segment_type)
+                materialId = perCellMaterialIds[meshIndex];
 
             // Load mesh from file
             const auto transformation = _properties.transformMeshes
                                             ? transformations[meshIndex]
                                             : Matrix4f();
+
+            const auto filename =
+                _getMeshFilenameFromGID(gid, _properties.meshFilenamePattern,
+                                        _properties.meshFolder);
             try
             {
-                meshLoader.importMesh(_getMeshFilenameFromGID(
-                                          gid, _properties.meshFilenamePattern,
-                                          _properties.meshFolder),
-                                      callback, model, meshIndex,
+                meshLoader.importMesh(filename, callback, model, meshIndex,
                                       transformation, materialId, colorScheme,
                                       geometryQuality);
             }
@@ -531,10 +536,9 @@ private:
     bool _importMorphologies(
         const brain::Circuit& circuit, const LoaderProgress& callback,
         Model& model, const brain::GIDSet& gids,
-        const Matrix4fs& transformations, const GIDOffsets& targetGIDOffsets,
-        CompartmentReportPtr compartmentReport, MorphologyLoader& morphLoader,
-        const size_ts& layerIds, const size_ts& morphologyTypes,
-        const size_ts& electrophysiologyTypes) const
+        const Matrix4fs& transformations,
+        const brain::CompartmentReportMapping* reportMapping,
+        MorphologyLoader& morphLoader, const size_ts& perCellMaterialIds) const
     {
         const brain::URIs& uris = circuit.getMorphologyURIs(gids);
         size_t loadingFailures = 0;
@@ -555,17 +559,19 @@ private:
                     callback.updateProgress(message.str(),
                                             current / static_cast<float>(
                                                           uris.size()));
-
-                    ParallelModelContainer modelContainer;
                     const auto& uri = uris[morphologyIndex];
 
                     auto materialFunc =
-                        std::bind(&Impl::_getMaterialFromGeometryParameters,
-                                  this, morphologyIndex, NO_MATERIAL,
-                                  std::placeholders::_1, targetGIDOffsets,
-                                  layerIds, morphologyTypes,
-                                  electrophysiologyTypes, false);
+                        [&](const brain::neuron::SectionType type) {
+                            if (_properties.useSimulationModel)
+                                return size_t{0};
+                            else
+                                return _getMaterialId(_properties.colorScheme,
+                                                      morphologyIndex, type,
+                                                      perCellMaterialIds);
+                        };
 
+                    ParallelModelContainer modelContainer;
                     if (!morphLoader._importMorphology(
                             uri, morphologyIndex, materialFunc,
                             transformations[morphologyIndex], compartmentReport,
@@ -573,13 +579,7 @@ private:
 #pragma omp atomic
                         ++loadingFailures;
 #pragma omp critical
-                    modelContainer.addSpheresToModel(model);
-#pragma omp critical
-                    modelContainer.addCylindersToModel(model);
-#pragma omp critical
-                    modelContainer.addConesToModel(model);
-#pragma omp critical
-                    modelContainer.addSDFGeometriesToModel(model);
+                    modelContainer.dump(model);
                 }
                 catch (...)
                 {
@@ -618,7 +618,6 @@ CircuitLoader::CircuitLoader(Scene& scene)
 CircuitLoader::~CircuitLoader()
 {
 }
-
 bool CircuitLoader::isSupported(const std::string& filename,
                                 const std::string& extension
                                     BRAYNS_UNUSED) const
