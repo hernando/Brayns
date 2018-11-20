@@ -90,7 +90,7 @@ else()
 endif()
 
 # Data access
-option(BRAYNS_CIRCUITVIEWER_ENABLED "Activate CircuirViewer plugin" OFF)
+option(BRAYNS_CIRCUITVIEWER_ENABLED "Activate CircuitViewer plugin" OFF)
 if (BRAYNS_CIRCUITVIEWER_ENABLED)
   list(APPEND COMMON_FIND_PACKAGE_DEFINES BRAYNS_USE_CIRCUITVIEWER)
 endif()
