@@ -39,7 +39,7 @@ class URI;
 namespace brayns
 {
 class CircuitLoader;
-struct ParallelModelContainer;
+struct ModelData;
 
 struct MorphologyLoaderParams
 {
@@ -94,12 +94,13 @@ public:
                               const size_t index,
                               const Matrix4f& transformation,
                               const MorphologyLoaderParams& params) const;
+
     using MaterialFunc = std::function<size_t(brain::neuron::SectionType)>;
     Vector3f _importMorphology(
         const servus::URI& source, const uint64_t index,
         MaterialFunc materialFunc, const Matrix4f& transformation,
         const brain::CompartmentReportMapping* reportMapping,
-        ParallelModelContainer& model,
+        ModelData& model,
         const MorphologyLoaderParams& params) const;
 
 private:
