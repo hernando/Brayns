@@ -42,6 +42,8 @@ using namespace brayns;
 
 namespace
 {
+constexpr size_t LOAD_BATCH_SIZE = 100;
+
 using Property = brayns::PropertyMap::Property;
 const Property PROP_DENSITY = {"density", "Density", 100.0};
 const Property PROP_RANDOM_SEED = {"randomSeed", "Random seed", 0};
@@ -413,35 +415,45 @@ public:
             reportMapping = &compartmentReport->getMapping();
         }
 
-        const Matrix4fs& transformations = circuit.getTransforms(allGids);
         _logLoadedGIDs(allGids);
 
         const auto perCellMaterialIds =
             _createPerCellMaterialIds(circuit, allGids, targetSizes);
 
-        // Import meshes
-        _importMeshes(callback, *model, allGids, transformations,
-                      perCellMaterialIds);
+        if (_morphologyParams.sectionTypes ==
+            std::vector<MorphologySectionType>{MorphologySectionType::soma})
 
-        // Import morphologies
-        const auto useSimulationModel = _properties.useSimulationModel;
-        model->useSimulationModel(useSimulationModel);
-        if (_properties.meshFolder.empty() || useSimulationModel)
         {
-            MorphologyLoader morphLoader(_scene);
-            if (!_importMorphologies(circuit, callback, *model, allGids,
-                                     transformations, reportMapping,
-                                     morphLoader, perCellMaterialIds))
-                return {};
+            // Import soma only morphologies as spheres
+            _addSomaSpheres(circuit, allGids, callback, *model,
+                            reportMapping, perCellMaterialIds);
+        }
+        else
+        {
+            // Import meshes
+            _importMeshes(callback, *model, allGids,
+                          circuit.getTransforms(allGids),
+                          perCellMaterialIds);
+
+            // Import morphologies
+            const auto useSimulationModel = _properties.useSimulationModel;
+            model->useSimulationModel(useSimulationModel);
+            if (_properties.meshFolder.empty() || useSimulationModel)
+            {
+                if (!_importMorphologies(circuit, allGids, callback, *model,
+                                         reportMapping, perCellMaterialIds))
+                    return {};
+            }
         }
 
         // Create materials
         model->createMissingMaterials();
 
         // Compute circuit center
+        auto positions = circuit.getPositions(allGids);
         Boxf center;
-        for (const auto& transformation : transformations)
-            center.merge(transformation.getTranslation());
+        for (const auto& position : positions)
+            center.merge(position);
 
         Transformation transformation;
         transformation.setRotationCenter(center.getCenter());
@@ -490,6 +502,28 @@ private:
         default:
             return size_ts();
         }
+    }
+
+    void _addSomaSpheres(
+        const brain::Circuit& circuit, const brain::GIDSet& gids,
+        const LoaderProgress& callback, Model& model,
+        const brain::CompartmentReportMapping* reportMapping,
+        const size_ts& perCellMaterialIds) const
+    {
+        const auto positions = circuit.getPositions(gids);
+        const auto radius =
+            static_cast<float>(_morphologyParams.radiusMultiplier);
+        for (size_t i = 0; i != gids.size(); ++i)
+        {
+            const auto materialId =
+                _getMaterialId(_properties.colorScheme,
+                               i, brain::neuron::SectionType::soma,
+                               perCellMaterialIds);
+            const uint64_t offset =
+                reportMapping ? reportMapping->getOffsets()[index][0] : 0;
+            model.addSpheres(materialId, {positions[i], radius, offset);
+        }
+        (void)callback;
     }
 
     void _importMeshes(const LoaderProgress& callback BRAYNS_UNUSED,
@@ -552,59 +586,74 @@ private:
     }
 
     bool _importMorphologies(
-        const brain::Circuit& circuit, const LoaderProgress& callback,
-        Model& model, const brain::GIDSet& gids,
-        const Matrix4fs& transformations,
+        const brain::Circuit& circuit, const brain::GIDSet& gids,
+        const LoaderProgress& callback, Model& model,
         const brain::CompartmentReportMapping* reportMapping,
-        MorphologyLoader& morphLoader, const size_ts& perCellMaterialIds) const
+        const size_ts& perCellMaterialIds) const
     {
-        const brain::URIs& uris = circuit.getMorphologyURIs(gids);
+        MorphologyLoader morphLoader(_scene);
+
         size_t loadingFailures = 0;
         std::stringstream message;
-        message << "Loading " << uris.size() << " morphologies...";
+        message << "Loading " << gids.size() << " morphologies...";
+
+        auto next = gids.begin();
+        size_t index = 0;
         std::atomic_size_t current{0};
-        std::exception_ptr cancelException;
-#pragma omp parallel
+        std::atomic_size_t loadingFailures{0};
+        const float total = gids.size();
+        while (next != gids.end())
         {
-#pragma omp for nowait
-            for (uint64_t morphologyIndex = 0; morphologyIndex < uris.size();
-                 ++morphologyIndex)
+            brain::GIDSet batch;
+            for (; batch.size() < LOAD_BATCH_SIZE && next != gids.end(); ++next)
+                batch.insert(*next);
+
+            const auto morphologies =
+                circuit.loadMorphologies(batch,
+                                         brain::Circuit::Coordinates::global);
+
+#pragma omp parallel for
+            for (uint64_t j = 0; j < morphologies.size(); ++j)
             {
                 ++current;
-
                 try
                 {
-                    callback.updateProgress(message.str(),
-                                            current / static_cast<float>(
-                                                          uris.size()));
-                    const auto& uri = uris[morphologyIndex];
-
-                    auto materialFunc =
-                        [&](const brain::neuron::SectionType type) {
-                            if (_properties.useSimulationModel)
-                                return size_t{0};
-                            else
-                                return _getMaterialId(_properties.colorScheme,
-                                                      morphologyIndex, type,
-                                                      perCellMaterialIds);
-                        };
-
-                    ModelData modelData;
-                    if (!morphLoader._importMorphology(
-                            uri, morphologyIndex, materialFunc,
-                            transformations[morphologyIndex], reportMapping,
-                            modelData, _morphologyParams))
-#pragma omp atomic
-                        ++loadingFailures;
-#pragma omp critical
-                    modelData.dump(model);
+                    callback.updateProgress(message.str(), current / total);
                 }
                 catch (...)
                 {
                     cancelException = std::current_exception();
-                    morphologyIndex = uris.size();
+                    break;
                 }
+
+                const auto morphologyIndex = index + j;
+                auto materialFunc =
+                    [&](const brain::neuron::SectionType type)
+                    {
+                        if (_properties.useSimulationModel)
+                            return size_t{0};
+                        else
+                            return
+                                _getMaterialId(_properties.colorScheme,
+                                               morphologyIndex,
+                                               type, perCellMaterialIds);
+                    };
+
+                const auto& morphology = morphologies[j];
+
+                if (morphology)
+                {
+                    auto data =
+                        morphLoader.processMorphology(
+                            *morphology, morphologyIndex, materialFunc,
+                            reportMapping, _morphologyParams);
+#pragma omp critical
+                    data.dump(model);
+                }
+                else
+                    ++loadingFailures;
             }
+            index += batch.size();
         }
 
         if (cancelException)
