@@ -332,15 +332,7 @@ private:
                          geometryParameters.getCircuitMeshFolder()});
         pm.addProperty(
             {"density", "density", geometryParameters.getCircuitDensity()});
-        {
-            const auto bbox = geometryParameters.getCircuitBoundingBox();
-            const auto p0 = toArray(bbox.getMin());
-            const auto p1 = toArray(bbox.getMax());
-            pm.addProperty({"boundingBoxP0", "boundingBoxP0", p0});
-            pm.addProperty({"boundingBoxP1", "boundingBoxP1", p1});
-        }
         pm.addProperty({"dampenBranchThicknessChangerate",
-                         "dampenBranchThicknessChangerate",
                          geometryParameters
                              .getMorphologyDampenBranchThicknessChangerate()});
         pm.addProperty({"useSDFGeometries", "useSDFGeometries",
@@ -357,8 +349,6 @@ private:
                          geometryParameters.getCircuitMeshFolder()});
         pm.addProperty({"randomSeed", "randomSeed",
                          int32_t(geometryParameters.getCircuitRandomSeed())});
-        pm.addProperty(
-            {"density", "density", geometryParameters.getCircuitDensity()});
         pm.addProperty({"useSimulationModel", "useSimulationModel",
                          geometryParameters.getCircuitUseSimulationModel()});
         pm.addProperty({"meshFilenamePattern", "meshFilenamePattern",

@@ -56,12 +56,6 @@ const Property PROP_MESH_FILENAME_PATTERN = {"meshFilenamePattern",
                                              std::string("")};
 const Property PROP_MESH_FOLDER = {"meshFolder", "Mesh folder",
                                    std::string("")};
-const Property PROP_BOUNDING_BOX_P0 = {"boundingBoxP0",
-                                       "First bounding box boundary point",
-                                       std::array<double, 3>{{0, 0, 0}}};
-const Property PROP_BOUNDING_BOX_P1 = {"boundingBoxP1",
-                                       "Second bounding box boundary point",
-                                       std::array<double, 3>{{0, 0, 0}}};
 const Property PROP_USE_SIMULATION_MODEL = {"useSimulationModel",
                                             "Use simulation model", false};
 const Property PROP_TRANSFORM_MESHES = {"transformMeshes", "Transform meshes",
@@ -329,10 +323,6 @@ struct CircuitProperties
         setVariable(targets, PROP_TARGETS.name, "");
         setVariable(meshFilenamePattern, PROP_MESH_FILENAME_PATTERN.name, "");
         setVariable(meshFolder, PROP_MESH_FOLDER.name, "");
-        setVariable(boundingBoxP0, PROP_BOUNDING_BOX_P0.name,
-                    std::array<double, 3>{{0, 0, 0}});
-        setVariable(boundingBoxP1, PROP_BOUNDING_BOX_P1.name,
-                    std::array<double, 3>{{0, 0, 0}});
         setVariable(useSimulationModel, PROP_USE_SIMULATION_MODEL.name, false);
         setVariable(transformMeshes, PROP_TRANSFORM_MESHES.name, 0);
         setEnumVariable(colorScheme, PROP_COLOR_SCHEME.name, ColorScheme::none);
@@ -350,8 +340,6 @@ struct CircuitProperties
                  [& targetList = targetList](const std::string& s) {
                      targetList.push_back(s);
                  });
-
-        boundingBox = Boxd(toVmmlVec(boundingBoxP0), toVmmlVec(boundingBoxP1));
     }
 
     double density = 0.0;
@@ -372,33 +360,9 @@ struct CircuitProperties
     bool synchronousMode = false;
 
     GeometryQuality geometryQuality = GeometryQuality::high;
-
-    std::array<double, 3> boundingBoxP0;
-    std::array<double, 3> boundingBoxP1;
-    Boxd boundingBox;
 };
 
-brain::GIDSet _getFilteredGIDs(const brain::Circuit& circuit,
-                               const std::string& target,
-                               const CircuitProperties& properties)
-{
-    const auto allGIDs = circuit.getRandomGIDs(properties.density / 100.0,
-                                               target, properties.randomSeed);
-
-    const auto& aabb = properties.boundingBox;
-    if (aabb.getSize() == Vector3f(0.f))
-        return allGIDs;
-
-    const Matrix4fs& transformations = circuit.getTransforms(allGIDs);
-    brain::GIDSet gids;
-    auto gid = allGIDs.begin();
-    for (size_t i = 0; i < transformations.size(); ++i, ++gid)
-        if (aabb.isIn(Vector3d(transformations[i].getTranslation())))
-            gids.insert(*gid);
-    return gids;
-}
-
-CompartmentReportPtr _openCompartmentReport(const brion::BlueConfig& blueConfig,
+CompartmentReportPtr _openCompartmentReport(const brain::Simulation* simulation,
                                             const std::string& name,
                                             const brion::GIDSet& gids)
 {
@@ -464,15 +428,22 @@ public:
         brain::GIDSet allGids;
         size_ts targetSizes;
 
-        strings localTargets;
-        if (_properties.targetList.empty())
-            localTargets.push_back(bc.getCircuitTarget());
-        else
-            localTargets = _properties.targetList;
+        const strings localTargets = _properties.targetList.empty()
+                                         ? strings{{""}}
+                                         : _properties.targetList;
+
+        auto resolveTarget = [&](const std::string& name) {
+            const float fraction = _properties.density / 100.0f;
+            if (simulation)
+                return simulation->getGIDs(name, fraction,
+                                           _properties.randomSeed);
+            return circuit.getRandomGIDs(fraction, name,
+                                         _properties.randomSeed);
+        };
 
         for (const auto& target : localTargets)
         {
-            const auto gids = _getFilteredGIDs(circuit, target, _properties);
+            const auto gids = resolveTarget(target);
             if (gids.empty())
             {
                 BRAYNS_ERROR << "Target " << target
@@ -819,8 +790,6 @@ PropertyMap CircuitLoader::getProperties() const
     pm.setProperty(PROP_TARGETS);
     pm.setProperty(PROP_MESH_FILENAME_PATTERN);
     pm.setProperty(PROP_MESH_FOLDER);
-    pm.setProperty(PROP_BOUNDING_BOX_P0);
-    pm.setProperty(PROP_BOUNDING_BOX_P1);
     pm.setProperty(PROP_USE_SIMULATION_MODEL);
     pm.setProperty(PROP_TRANSFORM_MESHES);
     pm.setProperty(PROP_COLOR_SCHEME);
